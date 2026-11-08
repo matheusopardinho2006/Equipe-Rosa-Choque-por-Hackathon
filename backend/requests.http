@@ -1,0 +1,48 @@
+### Teste rápido (extensão REST Client do VS Code)
+@api = http://localhost:3333/api
+
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "usuario": "admin", "senha": "admin123" }
+
+###
+@token = {{login.response.body.token}}
+
+### 1. Validar e calcular sem salvar
+POST {{api}}/pos/preview
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "familia": "Sobre-lençol",
+  "tamanho": "Solteiro",
+  "perimetroM": 6.96,
+  "pontosCm": 2.5,
+  "maquina": 1,
+  "elementos": "2.1, 1.1, 3.1"
+}
+
+### 2. Criar PO — código (PO-SL-001) e Rev. 00 são gerados
+# @name criada
+POST {{api}}/pos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+< ./exemplos/demanda-PO-SL-001.json
+
+###
+@poId = {{criada.response.body._id}}
+
+### 3. Histórico
+GET {{api}}/pos
+Authorization: Bearer {{token}}
+
+### 4. Análise da PO
+GET {{api}}/pos/{{poId}}/analise
+Authorization: Bearer {{token}}
+
+### 5. Exportar Excel
+GET {{api}}/pos/{{poId}}/excel
+Authorization: Bearer {{token}}

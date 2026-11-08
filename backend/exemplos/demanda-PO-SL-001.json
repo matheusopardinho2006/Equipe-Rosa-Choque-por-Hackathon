@@ -1,0 +1,10 @@
+{
+  "familia": "Sobre-lençol",
+  "tamanho": "Solteiro",
+  "medidas": "1,80 x 2,50",
+  "pontosCm": 2.5,
+  "perimetroM": 6.96,
+  "operacao": "Bainhar no corpo do SL - 1 lado",
+  "maquina": 1,
+  "elementos": ["2.1", "1.1", "3.1"]
+}

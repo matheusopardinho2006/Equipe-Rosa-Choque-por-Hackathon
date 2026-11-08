@@ -1,0 +1,30 @@
+:root {
+  --bg: #f4f4f4; --surface: #fff; --text: #222; --muted: #555; --line: #888; --accent: #222;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+a { color: inherit; }
+.layout { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1200px; margin: 0 auto; padding: 24px 16px; align-items: flex-start; }
+.sidebar { flex: 1 1 200px; background: var(--surface); border: 2px solid var(--accent); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.sidebar a { padding: 10px; text-decoration: none; }
+.sidebar a.active { background: var(--accent); color: #fff; }
+.content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.card { background: var(--surface); border: 2px solid var(--accent); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+input, select { height: 42px; border: 1px solid var(--line); padding: 0 10px; font-size: 14px; background: #fff; }
+button { min-height: 42px; padding: 0 16px; border: 1px solid var(--line); background: #fff; font-size: 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border: 2px solid var(--accent); font-weight: 600; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px; text-align: left; border-top: 1px solid #ccc; }
+th { background: #e8e8e8; }
+td.num, th.num { text-align: right; }
+.erro { color: #b00020; font-size: 14px; }
+.muted { color: var(--muted); font-size: 13px; }
+.stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.progress { height: 10px; background: #e2e2e2; border: 1px solid #999; }
+.progress > div { height: 100%; background: var(--accent); transition: width .3s; }

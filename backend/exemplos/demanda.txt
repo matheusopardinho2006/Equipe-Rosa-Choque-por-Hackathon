@@ -1,0 +1,8 @@
+Agrupamento família: Sobre-lençol
+Tamanho: Solteiro
+Medidas da peça (em m): 1,80 x 2,50
+Pontos/cm: 2,5
+Perímetro costura (em m): 6,96
+Operação: Bainhar no corpo do SL - 1 lado
+Cód. Eqp.: 1
+Elementos: 2.1, 1.1, 3.1
