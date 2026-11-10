@@ -3,7 +3,7 @@ const { Schema, model } = require('mongoose');
 const UsuarioSchema = new Schema(
   {
     usuario: { type: String, required: true, unique: true },
-    senhaHash: { type: String, required: true },
+    firebaseUid: { type: String, required: true, unique: true, sparse: true },
     perfil: { type: String, enum: ['ADM'], default: 'ADM' },
   },
   { timestamps: true }

@@ -1,9 +1,11 @@
 import axios from 'axios';
+import { signOut } from 'firebase/auth';
+import { firebaseAuth } from './firebase';
 
 const api = axios.create({ baseURL: `${import.meta.env.VITE_API_URL || ''}/api` });
 
-api.interceptors.request.use((cfg) => {
-  const token = localStorage.getItem('token');
+api.interceptors.request.use(async (cfg) => {
+  const token = await firebaseAuth.currentUser?.getIdToken();
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
   return cfg;
 });
@@ -12,8 +14,13 @@ api.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401 && !location.pathname.startsWith('/login')) {
-      localStorage.removeItem('token');
-      location.href = '/login';
+      signOut(firebaseAuth).then(
+        () => { location.href = '/login'; },
+        (signOutError) => {
+          console.error('Não foi possível encerrar a sessão Firebase:', signOutError);
+          location.href = '/login';
+        }
+      );
     }
     return Promise.reject(err);
   }
@@ -21,9 +28,8 @@ api.interceptors.response.use(
 
 export const erroMsg = (e) => e.response?.data?.erro || e.message;
 
-// Endpoints agrupados por recurso
 export const authApi = {
-  login: (usuario, senha) => api.post('/auth/login', { usuario, senha }).then((r) => r.data),
+  me: () => api.get('/auth/me').then((r) => r.data),
 };
 
 const enviarArquivo = (path, arquivo) => {

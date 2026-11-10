@@ -1,14 +1,8 @@
 ### Teste rápido (extensão REST Client do VS Code)
 @api = http://localhost:3333/api
 
-# @name login
-POST {{api}}/auth/login
-Content-Type: application/json
-
-{ "usuario": "admin", "senha": "admin123" }
-
-###
-@token = {{login.response.body.token}}
+# Copie um Firebase ID token válido de uma sessão autenticada no frontend.
+@token = COLE_AQUI_O_FIREBASE_ID_TOKEN
 
 ### 1. Validar e calcular sem salvar
 POST {{api}}/pos/preview

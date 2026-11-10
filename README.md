@@ -21,14 +21,18 @@ Pré-requisitos: Node 18 ou mais novo e um banco MongoDB (Atlas ou local).
 cd backend
 npm install
 cp .env.example .env      # Windows: copy .env.example .env
-# edite o .env e cole a MONGO_URI do seu banco
-npm run seed              # cadastra máquinas, elementos MTM e o usuário admin
+# configure MongoDB e as credenciais privadas do Firebase Admin no .env
+npm run seed              # cadastra máquinas, elementos MTM e habilita o UID administrador
 npm run dev               # API em http://localhost:3333/api
 ```
 
 No MongoDB Atlas, libere o seu IP em *Network Access*.
 
-**2. Frontend** (em outro terminal)
+**2. Firebase**
+
+No Firebase Console, crie um projeto, habilite o provedor **E-mail/senha** em Authentication e crie o usuário administrador em **Authentication > Users**. Configure o UID desse usuário em `ADMIN_FIREBASE_UID` no `backend/.env`; o `npm run seed` concede a ele o perfil ADM. Gere uma chave de conta de serviço para o backend e preencha as variáveis `FIREBASE_*` do mesmo arquivo.
+
+**3. Frontend** (em outro terminal)
 
 ```bash
 cd frontend
@@ -36,7 +40,7 @@ npm install
 npm run dev               # http://localhost:5173
 ```
 
-Login: `admin` / `admin123`.
+Copie `frontend/.env.example` para `frontend/.env` e preencha os dados do app Web em Firebase Console > Project settings > General. O login é feito com o e-mail e a senha cadastrados no Firebase. Outros usuários também precisam ser incluídos na coleção `usuarios` com seu UID e perfil para acessar a API.
 
 ## O que o sistema faz
 

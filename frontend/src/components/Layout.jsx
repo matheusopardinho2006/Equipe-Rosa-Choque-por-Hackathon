@@ -12,7 +12,7 @@ export default function Layout() {
         <NavLink to="/nova-po">+ Criar demanda (PO)</NavLink>
         <NavLink to="/historico">Histórico e análise</NavLink>
         <div className="muted" style={{ borderTop: '1px solid #ccc', marginTop: 10, padding: '12px 10px 0' }}>
-          {user?.usuario} ({user?.perfil}) · <a href="#" onClick={logout}>Sair</a>
+          {user?.email || user?.usuario} ({user?.perfil}) · <a href="#" onClick={(event) => { event.preventDefault(); logout(); }}>Sair</a>
         </div>
       </nav>
       <main className="content">
