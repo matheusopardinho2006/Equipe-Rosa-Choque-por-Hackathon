@@ -47,7 +47,9 @@ export default function Sidebar() {
 
       <div className="pt-6 mt-8 border-t border-[#9E9B97]">
         <div className="bg-white rounded-2xl py-2.5 px-4 text-center text-xs text-[#736F6B] leading-tight">
-          <div>Logado como {user?.usuario || 'XXXX'} /</div>
+          <div className="truncate">
+            Logado como {user?.email || user?.usuario || 'XXXX'} /
+          </div>
           <button
             type="button"
             onClick={handleLogout}

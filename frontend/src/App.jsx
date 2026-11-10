@@ -9,8 +9,9 @@ import FichaPO from './pages/FichaPO';
 import Historico from './pages/Historico';
 
 function Privada({ children }) {
-  const { token } = useAuth();
-  return token ? children : <Navigate to="/login" replace />;
+  const { user, loading } = useAuth();
+  if (loading) return <p className="p-6 text-sm text-[#686562]">Verificando autenticação...</p>;
+  return user ? children : <Navigate to="/login" replace />;
 }
 
 export default function App() {

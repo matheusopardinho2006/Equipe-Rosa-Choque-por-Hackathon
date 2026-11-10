@@ -13,8 +13,8 @@ const { maquinaSchema, elementoSchema, demandaSchema } = require('../validators/
 const r = Router();
 const adm = [autenticar, exigirPerfil('ADM')];
 
-// Auth
-r.post('/auth/login', h(auth.login));
+// Autenticação Firebase e perfil autorizado no sistema
+r.get('/auth/me', autenticar, h(auth.me));
 
 // CRUD de cadastros (leitura liberada a usuários logados; escrita só ADM)
 function rotasCrud(path, ctrl, schema, { importar = false } = {}) {

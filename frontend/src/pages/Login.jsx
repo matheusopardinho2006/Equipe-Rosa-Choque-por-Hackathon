@@ -6,7 +6,7 @@ import { erroMsg } from '../services/api';
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [usuario, setUsuario] = useState('');
+  const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
 
@@ -14,7 +14,7 @@ export default function Login() {
     e.preventDefault();
     setErro('');
     try {
-      await login(usuario, senha);
+      await login(email, senha);
       nav('/');
     } catch (err) {
       setErro(erroMsg(err));
@@ -57,10 +57,12 @@ export default function Login() {
                 Usuário:
               </label>
               <input
-                type="text"
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
+                placeholder="admin@exemplo.com"
                 className="w-full h-10 border border-[#A6A4A0] bg-white px-3 text-sm text-[#222222] focus:outline-none focus:border-[#736F6B]"
               />
             </div>
@@ -71,6 +73,7 @@ export default function Login() {
               </label>
               <input
                 type="password"
+                autoComplete="current-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 required

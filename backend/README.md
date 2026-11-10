@@ -7,17 +7,19 @@ API em **Node.js + Express + MongoDB** que calcula os tempos de uma operação d
 ```bash
 cd backend
 npm install
-cp .env.example .env      # Windows: copy .env.example .env  → preencha a MONGO_URI
-npm run seed              # cadastra máquinas, elementos MTM e o usuário admin
+cp .env.example .env      # Windows: copy .env.example .env
+npm run seed              # cadastra os dados e habilita o UID Firebase como ADM
 npm run dev               # http://localhost:3333/api
 ```
+
+Antes do seed, crie um usuário em **Firebase Authentication > Users** e configure o `ADMIN_FIREBASE_UID` dele no `.env`. Habilite o provedor **E-mail/senha** em **Authentication > Sign-in method**. O backend também precisa de uma chave de conta de serviço Firebase (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY`); gere-a em **Project settings > Service accounts** e mantenha-a privada. O `.env` do frontend contém somente a configuração pública do app web.
 
 | Comando | O que faz |
 |---|---|
 | `npm test` | Roda os testes (incluindo o gabarito: FIXO 0,6709 e TP 0,9409) |
 | `npm run limpar-pos` | Apaga todas as POs e zera a numeração (use antes da demo) |
 
-Login padrão: `admin` / `admin123`. Toda rota, exceto o login, exige o cabeçalho `Authorization: Bearer <token>`.
+Todas as rotas protegidas, inclusive `/auth/me`, exigem um Firebase ID token válido no cabeçalho `Authorization: Bearer <token>`.
 
 ## Organização
 
@@ -36,7 +38,7 @@ src/
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/auth/login` | Login, devolve o token |
+| GET | `/auth/me` | Valida a sessão e devolve o perfil autorizado |
 | GET/POST/PUT/DELETE | `/maquinas[/:codigo]` | Cadastro de máquinas |
 | GET/POST/PUT/DELETE | `/elementos[/:codigo]` | Cadastro de elementos MTM |
 | POST | `/elementos/importar` | Importa elementos de Excel/CSV (colunas `codigo`, `descricao`, `tempo`) |
@@ -49,6 +51,8 @@ src/
 | GET | `/pos/:id/excel` | Baixa a ficha em Excel |
 
 Erros sempre voltam como `{ "erro": "mensagem", "detalhes": { "campo": ["motivo"] } }`.
+
+O login acontece no Firebase no frontend. Todas as rotas de negócio exigem `Authorization: Bearer <Firebase ID token>`; o backend verifica assinatura, validade e revogação do token e confere se o UID está cadastrado na coleção `usuarios`. Um usuário autenticado no Firebase sem UID provisionado recebe `403`. O seed habilita o UID de `ADMIN_FIREBASE_UID` como `ADM`; não há mais usuário/senha local nem endpoint de login com JWT próprio.
 
 ## Dados de entrada da PO
 
