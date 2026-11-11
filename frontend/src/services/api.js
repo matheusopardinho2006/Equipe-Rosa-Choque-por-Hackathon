@@ -55,6 +55,13 @@ export const posApi = {
   buscar: (id) => api.get(`/pos/${id}`).then((r) => r.data),
   remover: (id) => api.delete(`/pos/${id}`),
   importar: (arquivo) => enviarArquivo('/pos/importar', arquivo),
+  baixarTodasExcel: async () => {
+    const r = await api.get('/pos/exportar/excel', { responseType: 'blob' });
+    const url = URL.createObjectURL(r.data);
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'todas-as-pos.xlsx' });
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   baixarExcel: async (po) => {
     const r = await api.get(`/pos/${po._id}/excel`, { responseType: 'blob' });
     const url = URL.createObjectURL(r.data);

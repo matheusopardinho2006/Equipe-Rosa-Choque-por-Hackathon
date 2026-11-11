@@ -2,7 +2,7 @@ const PO = require('../models/PO');
 const AppError = require('../utils/AppError');
 const poService = require('../services/po.service');
 const { lerDemandas } = require('../services/importacao.service');
-const { gerarExcelPO } = require('../services/exportacao.service');
+const { gerarExcelPO, gerarExcelTodasPOs } = require('../services/exportacao.service');
 const { demandaSchema } = require('../validators/schemas');
 
 async function buscarOu404(id) {
@@ -61,6 +61,15 @@ module.exports = {
     const buf = await gerarExcelPO(po);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${po.codigoPO}_Rev${po.revisao}.xlsx"`);
+    res.send(Buffer.from(buf));
+  },
+
+  excelTodas: async (_req, res) => {
+    const pos = await PO.find().sort({ updatedAt: -1 }).lean();
+    if (!pos.length) throw new AppError('Nenhuma PO encontrada para exportação', 404);
+    const buf = await gerarExcelTodasPOs(pos);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="todas-as-pos.xlsx"');
     res.send(Buffer.from(buf));
   },
 

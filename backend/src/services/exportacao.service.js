@@ -45,11 +45,7 @@ function linhaValores(ws, r, valores) {
   });
 }
 
-/** Gera a ficha PO em Excel. Retorna Buffer. */
-async function gerarExcelPO(po) {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = 'Auto-T&M';
-  const ws = wb.addWorksheet(po.codigoPO);
+function preencherPlanilhaPO(ws, po) {
   ws.columns = [{ width: 22 }, { width: 28 }, { width: 25 }, { width: 16 }, { width: 24 }];
 
   // 1 — Código e revisão
@@ -111,7 +107,44 @@ async function gerarExcelPO(po) {
   for (let i = 2; i <= r; i++) if (i !== 3) ws.getRow(i).height = 20;
 
   ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+}
+
+/** Gera a ficha PO em Excel. Retorna Buffer. */
+async function gerarExcelPO(po) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Auto-T&M';
+  preencherPlanilhaPO(wb.addWorksheet(po.codigoPO), po);
   return wb.xlsx.writeBuffer();
 }
 
-module.exports = { gerarExcelPO };
+function nomePlanilhaPO(po, nomesUsados) {
+  const base = `${po.codigoPO}_Rev${po.revisao}`
+    .replace(/[\\/*?:[\]]/g, ' ')
+    .replace(/^'+|'+$/g, '')
+    .trim()
+    .slice(0, 31) || 'PO';
+  let nome = base;
+  let sufixo = 2;
+
+  while (nomesUsados.has(nome.toLowerCase())) {
+    const complemento = ` (${sufixo++})`;
+    nome = `${base.slice(0, 31 - complemento.length)}${complemento}`;
+  }
+  nomesUsados.add(nome.toLowerCase());
+  return nome;
+}
+
+/** Gera um Excel com uma aba para cada PO. Retorna Buffer. */
+async function gerarExcelTodasPOs(pos) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Auto-T&M';
+  const nomesUsados = new Set();
+
+  pos.forEach((po) => {
+    preencherPlanilhaPO(wb.addWorksheet(nomePlanilhaPO(po, nomesUsados)), po);
+  });
+
+  return wb.xlsx.writeBuffer();
+}
+
+module.exports = { gerarExcelPO, gerarExcelTodasPOs };

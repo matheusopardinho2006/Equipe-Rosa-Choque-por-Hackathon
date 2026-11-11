@@ -23,12 +23,25 @@ export default function Dashboard() {
   const [qtdElementos, setQtdElementos] = useState(0);
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
+  const [exportando, setExportando] = useState(false);
 
   // CARREGAR POs
   const carregar = () =>
     posApi.listar()
       .then(setPos)
       .catch((e) => setErro(erroMsg(e)));
+
+  async function exportarTodas() {
+    setExportando(true);
+    setErro('');
+    try {
+      await posApi.baixarTodasExcel();
+    } catch (e) {
+      setErro(erroMsg(e));
+    } finally {
+      setExportando(false);
+    }
+  }
 
   useEffect(() => {
     carregar();
@@ -112,7 +125,16 @@ export default function Dashboard() {
       <PageHeader
         titulo="Cadastro de POs"
         subtitulo="Crie novas fichas de Processo Operacional e consulte as já geradas"
-      />
+      >
+        <Button
+          variante="primario"
+          tamanho="grande"
+          onClick={exportarTodas}
+          disabled={exportando || pos.length === 0}
+        >
+          {exportando ? 'Exportando...' : 'Exportar todas as POs'}
+        </Button>
+      </PageHeader>
 
       {/* CARDS SUPERIORES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
