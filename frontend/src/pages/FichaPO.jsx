@@ -42,13 +42,11 @@ export default function FichaPO() {
   const { id } = useParams();
 
   const [po, setPo] = useState(null);
-  const [aviso, setAviso] = useState(false);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
     setPo(null);
     setErro('');
-    setAviso(false);
 
     posApi
       .buscar(id)
@@ -199,15 +197,6 @@ export default function FichaPO() {
           </span>
 
           <Button
-            variante="secundario"
-            tamanho="grande"
-            className="min-w-[130px]"
-            onClick={() => setAviso(true)}
-          >
-            Revisar
-          </Button>
-
-          <Button
             variante="primario"
             tamanho="grande"
             className="min-w-[160px]"
@@ -217,30 +206,6 @@ export default function FichaPO() {
           </Button>
         </PageHeader>
       </div>
-
-      {/* AVISO DE REVISÃO */}
-      {aviso && (
-        <div className="bg-white border border-[#C8C6C1] rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-
-          <div>
-            <p className="text-sm font-semibold text-[#222222]">
-              Revisão de PO
-            </p>
-
-            <p className="text-sm text-[#686562] mt-1">
-              Esta funcionalidade ainda não está disponível.
-            </p>
-          </div>
-
-          <Button
-            variante="primario"
-            tamanho="medio"
-            onClick={() => setAviso(false)}
-          >
-            Entendi
-          </Button>
-        </div>
-      )}
 
       {/* RESUMO DOS TEMPOS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">

@@ -72,5 +72,4 @@ Cenário oficial do evento (Sobre-lençol Solteiro, máquina 1, elementos 2.1, 1
 
 ## Próximos passos
 
-- **Revisões da PO** (Rev. 01, 02...): o botão já existe na ficha, com o aviso "a implementar".
-- **Importar máquinas por planilha**, como já é feito com os procedimentos MTM.
+- **Revisões da PO** (Rev. 01, 02...): hoje toda PO nasce como Rev. 00.

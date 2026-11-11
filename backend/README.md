@@ -141,4 +141,4 @@ Cada registro é validado separadamente: os válidos viram PO e os inválidos vo
 
 ## Próximos passos
 
-- **Revisões da PO** (Rev. 01, 02...): o botão já existe no front, com o aviso "a implementar".
+- **Revisões da PO** (Rev. 01, 02...): hoje toda PO nasce como Rev. 00.
