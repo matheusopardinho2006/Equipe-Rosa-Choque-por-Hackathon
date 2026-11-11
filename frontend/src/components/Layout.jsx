@@ -32,16 +32,19 @@ export default function Layout() {
             {/* Navegação Principal */}
             <nav className="space-y-4">
               <NavLink to="/" end className={navLinkStyle}>
-                Dashboard /<br />
-                Elementos MTM
+                Cadastro de POs
               </NavLink>
 
               <NavLink to="/maquinas" className={navLinkStyle}>
-                Maquinas
+                Cadastro de Máquinas
               </NavLink>
 
-              <NavLink to="/historico" className={navLinkStyle}>
-                Histórico/Análise
+              <NavLink to="/elementos" className={navLinkStyle}>
+                Cadastro de elementos MTM
+              </NavLink>
+
+              <NavLink to="/analise" className={navLinkStyle}>
+                Análise de POs
               </NavLink>
             </nav>
           </div>

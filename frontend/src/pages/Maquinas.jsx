@@ -135,7 +135,7 @@ export default function Maquinas() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-[26px] font-bold text-[#000000] leading-tight">
-            Máquinas
+            Cadastro de Máquinas
           </h1>
           <p className="text-sm text-[#222222] mt-1 max-w-md leading-snug">
             Gerencie o cadastro das máquinas disponíveis
