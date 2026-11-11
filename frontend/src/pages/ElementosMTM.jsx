@@ -1,43 +1,123 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { elementosApi, erroMsg } from '../services/api';
 
-const vazio = { codigo: '', descricao: '', tempo: '' };
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+
+const vazio = {
+  codigo: '',
+  descricao: '',
+  tempo: '',
+};
+
+const estiloCampo =
+  'w-full h-12 bg-[#F2F1EE] border border-[#C8C6C1] ' +
+  'rounded-xl px-4 text-sm text-[#222222] ' +
+  'placeholder:text-[#9E9B97] ' +
+  'focus:outline-none focus:border-[#736F6B] ' +
+  'disabled:opacity-60';
+
+const estiloLabel =
+  'block text-sm font-medium text-[#686562] mb-2';
 
 export default function ElementosMTM() {
   const [elementos, setElementos] = useState([]);
   const [busca, setBusca] = useState('');
   const [form, setForm] = useState(null);
   const [editando, setEditando] = useState(null);
+
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
+  const [salvando, setSalvando] = useState(false);
+  const [importando, setImportando] = useState(false);
+
   const fileInputRef = useRef(null);
 
+  // CARREGAR ELEMENTOS
   const carregar = () => {
-    elementosApi
-      ?.listar()
+    return elementosApi
+      .listar()
       .then(setElementos)
-      .catch((e) =>
-        setErro(erroMsg(e))
-      );
+      .catch((e) => setErro(erroMsg(e)));
   };
 
   useEffect(() => {
     carregar();
   }, []);
 
+  // LIMPAR NOTIFICAÇÕES APÓS 5 SEGUNDOS
   useEffect(() => {
-    if (erro || sucesso) {
-      const timer = setTimeout(() => {
-        setErro('');
-        setSucesso('');
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+    if (!erro && !sucesso) return;
+
+    const timer = setTimeout(() => {
+      setErro('');
+      setSucesso('');
+    }, 5000);
+
+    return () => clearTimeout(timer);
   }, [erro, sucesso]);
 
+  // FILTRAR ELEMENTOS
+  const elementosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+
+    if (!termo) return elementos;
+
+    return elementos.filter((el) =>
+      [el.codigo, el.descricao, el.agrupador].some(
+        (valor) =>
+          String(valor ?? '')
+            .toLowerCase()
+            .includes(termo)
+      )
+    );
+  }, [elementos, busca]);
+
+  // ABRIR CADASTRO
+  function abrirNovo() {
+    setForm({ ...vazio });
+    setEditando(null);
+    setErro('');
+  }
+
+  // ABRIR EDIÇÃO
+  function abrirEdicao(el) {
+    setForm({
+      codigo: el.codigo,
+      descricao: el.descricao,
+      tempo: el.tempo,
+    });
+
+    setEditando(el.codigo);
+    setErro('');
+  }
+
+  // FECHAR MODAL
+  function fecharModal() {
+    setForm(null);
+    setEditando(null);
+    setErro('');
+  }
+
+  // ATUALIZAR CAMPOS
+  function atualizarCampo(campo, valor) {
+    setForm((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+  }
+
+  // SALVAR ELEMENTO
   async function salvar(e) {
     e.preventDefault();
+
+    if (salvando) return;
+
+    setSalvando(true);
+    setErro('');
+    setSucesso('');
+
     try {
       if (editando) {
         await elementosApi.atualizar(editando, form);
@@ -46,292 +126,379 @@ export default function ElementosMTM() {
         await elementosApi.criar(form);
         setSucesso('Elemento MTM criado com sucesso!');
       }
+
       setForm(null);
       setEditando(null);
-      carregar();
-    } catch (err) {
-      setErro(erroMsg(err));
-    }
-  }
-
-  async function excluir(el) {
-    if (!confirm(`Excluir elemento ${el.codigo}?`)) return;
-    try {
-      await elementosApi.remover(el.codigo);
-      setSucesso(`Elemento ${el.codigo} removido.`);
-      carregar();
-    } catch (e) {
-      setErro(erroMsg(e));
-    }
-  }
-
-  async function importar(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    try {
-      const r = await elementosApi.importar(f);
-      if (r) {
-        const falhas =
-          r.erros?.map(
-            (x) =>
-              `linha ${x.linha}: ${Object.entries(x.erro)
-                .map(([k, v]) => `${k} (${v.join(', ')})`)
-                .join('; ')}`
-          ) || [];
-        alert(
-          `${r.inseridos || 0} novo(s), ${r.atualizados || 0} atualizado(s), ${
-            r.erros?.length || 0
-          } com erro.${falhas.length ? '\n\n' + falhas.join('\n') : ''}`
-        );
-        setSucesso('Arquivo importado com sucesso!');
-      }
+      await carregar();
     } catch (err) {
       setErro(erroMsg(err));
     } finally {
-      e.target.value = '';
-      carregar();
+      setSalvando(false);
     }
   }
 
-  const elementosFiltrados = elementos.filter((el) => {
-    const termo = busca.trim().toLowerCase();
-    if (!termo) return true;
-    return (
-      String(el.codigo || '')
-        .toLowerCase()
-        .includes(termo) ||
-      String(el.descricao || '')
-        .toLowerCase()
-        .includes(termo) ||
-      String(el.agrupador || '')
-        .toLowerCase()
-        .includes(termo)
-    );
-  });
+  // EXCLUIR ELEMENTO
+  async function excluir(el) {
+    if (!window.confirm(`Excluir elemento ${el.codigo}?`)) {
+      return;
+    }
+
+    setErro('');
+    setSucesso('');
+
+    try {
+      await elementosApi.remover(el.codigo);
+      setSucesso(`Elemento ${el.codigo} removido.`);
+      await carregar();
+    } catch (err) {
+      setErro(erroMsg(err));
+    }
+  }
+
+  // IMPORTAR EXCEL / CSV
+  async function importar(e) {
+    const arquivo = e.target.files?.[0];
+
+    if (!arquivo) return;
+
+    setImportando(true);
+    setErro('');
+    setSucesso('');
+
+    try {
+      const resultado = await elementosApi.importar(arquivo);
+
+      if (resultado) {
+        const falhas = (resultado.erros || []).map((x) => {
+          const detalhes =
+            typeof x.erro === 'string'
+              ? x.erro
+              : Object.entries(x.erro || {})
+                  .map(
+                    ([k, v]) =>
+                      `${k} (${
+                        Array.isArray(v)
+                          ? v.join(', ')
+                          : String(v)
+                      })`
+                  )
+                  .join('; ');
+
+          return `Linha ${x.linha}: ${detalhes}`;
+        });
+
+        window.alert(
+          `${resultado.inseridos || 0} novo(s), ` +
+            `${resultado.atualizados || 0} atualizado(s), ` +
+            `${resultado.erros?.length || 0} com erro.` +
+            (falhas.length
+              ? '\n\n' + falhas.join('\n')
+              : '')
+        );
+
+        if (falhas.length === 0) {
+          setSucesso('Arquivo importado com sucesso!');
+        } else {
+          setErro('Importação concluída com algumas falhas.');
+        }
+      }
+
+      await carregar();
+    } catch (err) {
+      setErro(erroMsg(err));
+    } finally {
+      setImportando(false);
+      e.target.value = '';
+    }
+  }
 
   return (
-    <div className="bg-[#F2F1EE] rounded-[28px] p-6">
-      {/* Alertas Flutuantes */}
+    <div className="w-full min-h-[760px] bg-[#F2F1EE] rounded-[28px] p-6 lg:p-10">
+
+      {/* NOTIFICAÇÕES */}
       {(erro || sucesso) && (
-        <div className="fixed top-5 right-5 z-50 flex flex-col gap-2">
+        <div
+          className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-[420px]"
+          role="status"
+        >
           {erro && (
-            <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl shadow-md text-xs">
+            <div className="bg-red-50 border border-red-300 text-red-700 px-5 py-4 rounded-xl shadow-md text-sm">
               {erro}
             </div>
           )}
+
           {sucesso && (
-            <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 rounded-xl shadow-md text-xs">
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-5 py-4 rounded-xl shadow-md text-sm">
               {sucesso}
             </div>
           )}
         </div>
       )}
 
-      {/* Título */}
-      <div className="mb-5">
-        <h1 className="text-3xl font-normal text-[#686562]">Cadastro de elementos MTM</h1>
-        <p className="text-sm text-[#686562] mt-1">
-          Procedimentos padrão usados no roteiro das POs ({elementos.length} cadastrados)
-        </p>
-      </div>
+      {/* CABEÇALHO PADRONIZADO */}
+      <PageHeader
+        titulo="Cadastro de Elementos MTM"
+        subtitulo={`Procedimentos padrão utilizados no roteiro das POs (${elementos.length} cadastrados)`}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={importar}
+          className="hidden"
+        />
 
-      {/* Container Branco Interno: Elementos padrão (MTM) */}
-      <section className="bg-white rounded-3xl p-5">
-        {/* Barra de Ferramentas */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className="text-lg font-normal text-[#686562]">
+        <Button
+          variante="secundario"
+          tamanho="grande"
+          disabled={importando}
+          onClick={() => fileInputRef.current?.click()}
+          className="min-w-[175px]"
+        >
+          {importando ? 'Importando...' : 'Importar Excel/CSV'}
+        </Button>
+
+        <Button
+          variante="primario"
+          tamanho="grande"
+          onClick={abrirNovo}
+          className="min-w-[175px]"
+        >
+          + Novo elemento
+        </Button>
+      </PageHeader>
+
+      {/* CONTAINER PRINCIPAL */}
+      <section className="bg-white rounded-3xl p-5 lg:p-7">
+
+        {/* CABEÇALHO DA TABELA */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+
+          <h2 className="text-xl font-semibold text-[#222222]">
             Elementos padrão (MTM)
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
-            <input
-              type="text"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar código ou descrição"
-              className="bg-[#F2F1EE] text-[#686562] placeholder-[#686562] text-xs rounded-full px-5 py-2.5 w-60 focus:outline-none focus:ring-1 focus:ring-[#686562]"
-            />
+          <span className="text-sm text-[#736F6B]">
+            {elementosFiltrados.length} de {elementos.length} elementos
+          </span>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={importar}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-[#F2F1EE] hover:bg-[#E5E3DD] text-[#55524F] text-xs rounded-full px-4 py-2.5 transition-colors cursor-pointer"
-            >
-              Importar Excel/CSV
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setForm(vazio);
-                setEditando(null);
-              }}
-              className="bg-[#686562] hover:bg-[#55524F] text-white text-xs rounded-full px-4 py-2.5 transition-colors cursor-pointer"
-            >
-              + Novo Elemento
-            </button>
-          </div>
         </div>
 
-        {/* Tabela de Elementos MTM */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        {/* BUSCA */}
+        <div className="mb-6">
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar código, descrição ou agrupador..."
+            aria-label="Buscar elementos MTM"
+            className="w-full h-12 bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-5 text-sm text-[#222222] placeholder:text-[#9E9B97] focus:outline-none focus:border-[#736F6B]"
+          />
+        </div>
+
+        {/* TABELA */}
+        <div className="overflow-x-auto rounded-2xl border border-[#E6E4DF]">
+
+          <table className="w-full min-w-[760px] border-collapse text-sm">
+
             <thead>
               <tr className="bg-[#F2F1EE] text-[#686562]">
-                <th className="py-3 px-4 text-center font-normal rounded-tl-2xl w-24">
+
+                <th className="py-5 px-4 text-center font-semibold w-28">
                   Código
                 </th>
-                <th className="py-3 px-4 text-center font-normal w-36">
+
+                <th className="py-5 px-4 text-center font-semibold w-40">
                   Agrupador
                 </th>
-                <th className="py-3 px-4 text-left font-normal pl-8">
+
+                <th className="py-5 px-4 text-left font-semibold">
                   Descrição
                 </th>
-                <th className="py-3 px-4 text-center font-normal w-36">
+
+                <th className="py-5 px-4 text-center font-semibold w-36">
                   Tempo (min)
                 </th>
-                <th className="py-3 px-4 text-center font-normal rounded-tr-2xl w-44">
+
+                <th className="py-5 px-4 text-center font-semibold w-44">
                   Ações
                 </th>
+
               </tr>
             </thead>
-            <tbody>
-              {elementosFiltrados.map((el) => {
-                return (
-                  <tr
-                    key={el.codigo || el.id}
-                    className="hover:bg-[#FAF9F7] transition-colors text-[#686562]"
-                  >
-                    <td className="py-2.5 px-4 text-center">{el.codigo}</td>
-                    <td className="py-2.5 px-4 text-center">
-                      {el.agrupador ? `Agrupador ${el.agrupador}` : 'Agrupador'}
-                    </td>
-                    <td className="py-2.5 px-4 text-left pl-8">{el.descricao}</td>
-                    <td className="py-2.5 px-4 text-center">{el.tempo}</td>
-                    <td className="py-2.5 px-4 text-center">
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm({
-                              codigo: el.codigo,
-                              descricao: el.descricao,
-                              tempo: el.tempo,
-                            });
-                            setEditando(el.codigo);
-                          }}
-                          className="bg-[#686562] hover:bg-[#55524F] text-white text-xs px-3.5 py-1 rounded-full transition-colors cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => excluir(el)}
-                          className="bg-[#686562] hover:bg-red-700 text-white text-xs px-3.5 py-1 rounded-full transition-colors cursor-pointer"
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+
+            <tbody className="divide-y divide-[#E6E4DF]">
+
+              {elementosFiltrados.map((el) => (
+                <tr
+                  key={el.codigo || el.id}
+                  className="hover:bg-[#FAF9F7] transition-colors text-[#222222]"
+                >
+
+                  <td className="py-5 px-4 text-center font-medium text-[#222222]">
+                    {el.codigo}
+                  </td>
+
+                  <td className="py-5 px-4 text-center text-[#222222]">
+                    {el.agrupador
+                      ? `Agrupador ${el.agrupador}`
+                      : 'Agrupador'}
+                  </td>
+
+                  <td className="py-5 px-4 text-left text-[#222222]">
+                    {el.descricao}
+                  </td>
+
+                  <td className="py-5 px-4 text-center text-[#222222]">
+                    {el.tempo}
+                  </td>
+
+                  <td className="py-5 px-4 text-center">
+                    <div className="inline-flex items-center gap-2">
+
+                      <Button
+                        variante="editar"
+                        tamanho="pequeno"
+                        onClick={() => abrirEdicao(el)}
+                      >
+                        Editar
+                      </Button>
+
+                      <Button
+                        variante="excluir"
+                        tamanho="pequeno"
+                        onClick={() => excluir(el)}
+                      >
+                        Excluir
+                      </Button>
+
+                    </div>
+                  </td>
+
+                </tr>
+              ))}
 
               {elementosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-[#9E9B97]">
+                  <td
+                    colSpan={5}
+                    className="py-16 text-center text-[#736F6B]"
+                  >
                     Nenhum elemento MTM encontrado.
                   </td>
                 </tr>
               )}
+
             </tbody>
           </table>
         </div>
+
       </section>
 
-      {/* Modal de Cadastro / Edição de Elemento MTM */}
+      {/* MODAL DE CADASTRO / EDIÇÃO */}
       {form && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-xl border border-[#C8C6C1]">
-            <h3 className="text-lg font-bold text-[#222222] mb-4">
-              {editando ? `Editar Elemento (${editando})` : 'Novo Elemento MTM'}
-            </h3>
 
-            <form onSubmit={salvar} className="space-y-4">
+          <div className="bg-white rounded-[28px] p-6 md:p-9 w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-xl">
+
+            <div className="mb-7">
+              <h3 className="text-2xl font-semibold text-[#222222]">
+                {editando
+                  ? `Editar elemento ${editando}`
+                  : 'Novo elemento MTM'}
+              </h3>
+
+              <p className="text-sm text-[#736F6B] mt-2">
+                Preencha as informações do procedimento.
+              </p>
+            </div>
+
+            <form onSubmit={salvar} className="space-y-5">
+
+              {/* CÓDIGO */}
               <div>
-                <label className="block text-xs font-medium text-[#686562] mb-1">
+                <label className={estiloLabel}>
                   Código (agrupador.elemento)
                 </label>
+
                 <input
                   type="text"
                   required
                   disabled={!!editando}
                   value={form.codigo}
-                  onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                  onChange={(e) =>
+                    atualizarCampo('codigo', e.target.value)
+                  }
                   placeholder="Ex.: 2.1"
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm text-[#222222] focus:outline-none focus:border-[#686562] disabled:opacity-60"
+                  className={estiloCampo}
                 />
               </div>
 
+              {/* DESCRIÇÃO */}
               <div>
-                <label className="block text-xs font-medium text-[#686562] mb-1">
+                <label className={estiloLabel}>
                   Descrição
                 </label>
+
                 <input
                   type="text"
                   required
                   value={form.descricao}
                   onChange={(e) =>
-                    setForm({ ...form, descricao: e.target.value })
+                    atualizarCampo('descricao', e.target.value)
                   }
                   placeholder="Ex.: Apanhar e posicionar peça"
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm text-[#222222] focus:outline-none focus:border-[#686562]"
+                  className={estiloCampo}
                 />
               </div>
 
+              {/* TEMPO */}
               <div>
-                <label className="block text-xs font-medium text-[#686562] mb-1">
+                <label className={estiloLabel}>
                   Tempo (min)
                 </label>
+
                 <input
                   type="text"
+                  inputMode="decimal"
                   required
                   value={form.tempo}
-                  onChange={(e) => setForm({ ...form, tempo: e.target.value })}
+                  onChange={(e) =>
+                    atualizarCampo('tempo', e.target.value)
+                  }
                   placeholder="Ex.: 0,15"
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm text-[#222222] focus:outline-none focus:border-[#686562]"
+                  className={estiloCampo}
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm(null);
-                    setEditando(null);
-                  }}
-                  className="px-4 py-2 text-xs rounded-full bg-[#F2F1EE] text-[#55524F] hover:bg-[#E5E3DD] cursor-pointer"
+              {/* BOTÕES DO MODAL */}
+              <div className="flex justify-end gap-3 pt-4">
+
+                <Button
+                  variante="neutro"
+                  tamanho="medio"
+                  onClick={fecharModal}
+                  disabled={salvando}
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+
+                <Button
                   type="submit"
-                  className="px-5 py-2 text-xs rounded-full bg-[#686562] hover:bg-[#55524F] text-white cursor-pointer"
+                  variante="primario"
+                  tamanho="medio"
+                  disabled={salvando}
                 >
-                  Salvar
-                </button>
+                  {salvando ? 'Salvando...' : 'Salvar elemento'}
+                </Button>
+
               </div>
+
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }

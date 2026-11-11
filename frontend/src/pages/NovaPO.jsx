@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Stepper from '../components/Stepper';
-import { elementosApi, maquinasApi, posApi, erroMsg } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import {
+  elementosApi,
+  maquinasApi,
+  posApi,
+  erroMsg,
+} from '../services/api';
 import { toNum } from '../utils/format';
 
-const ETAPAS = ['Produto', 'Máquina', 'Procedimentos', 'Revisar e gerar'];
+const ETAPAS = [
+  'Produto',
+  'Máquina',
+  'Procedimentos',
+  'Revisar e gerar',
+];
+
 const TAMANHOS = [
-  'Solteiro',
-  'Solteiro King',
-  'Casal',
-  'Queen',
-  'King',
-  'Super King',
-  'Infantil',
-  'Berço',
+  'Solteiro', 'Solteiro King', 'Casal', 'Queen',
+  'King', 'Super King', 'Infantil', 'Berço',
 ];
 
 const inicial = {
@@ -28,37 +35,65 @@ const inicial = {
 };
 
 const MEDIDAS = /^\d+([.,]\d+)?\s*[xX×]\s*\d+([.,]\d+)?$/;
+
 const positivo = (v) =>
-  String(v).trim() !== '' && Number.isFinite(toNum(v)) && toNum(v) > 0;
+  String(v).trim() !== '' &&
+  Number.isFinite(toNum(v)) &&
+  toNum(v) > 0;
+
+const inputClass =
+  'w-full h-12 bg-white border border-[#C8C6C1] rounded-xl px-4 ' +
+  'text-sm text-[#222222] placeholder:text-[#9E9B97] ' +
+  'focus:outline-none focus:border-[#736F6B]';
 
 function validarEtapa(etapa, d) {
   const e = {};
+
   if (etapa === 0) {
-    if (!d.familia.trim()) e.familia = 'Informe o agrupamento família';
-    if (!d.tamanho.trim()) e.tamanho = 'Informe o tamanho';
-    if (!d.medidas.trim()) e.medidas = 'Informe as medidas da peça';
-    else if (!MEDIDAS.test(d.medidas.trim()))
+    if (!d.familia.trim())
+      e.familia = 'Informe o agrupamento família';
+
+    if (!d.tamanho.trim())
+      e.tamanho = 'Informe o tamanho';
+
+    if (!d.medidas.trim()) {
+      e.medidas = 'Informe as medidas da peça';
+    } else if (!MEDIDAS.test(d.medidas.trim())) {
       e.medidas = 'Use largura x comprimento (ex.: 1,80 x 2,50)';
+    }
+
     if (!positivo(d.pontosCm))
-      e.pontosCm = 'Informe um número maior que zero (ex.: 2,5)';
+      e.pontosCm = 'Informe um número maior que zero';
+
     if (!positivo(d.perimetroM))
-      e.perimetroM = 'Informe um número maior que zero (ex.: 6,96)';
-    if (!d.operacao.trim()) e.operacao = 'Informe a operação';
+      e.perimetroM = 'Informe um número maior que zero';
+
+    if (!d.operacao.trim())
+      e.operacao = 'Informe a operação';
   }
-  if (etapa === 1 && !d.maquina) e.maquina = 'Selecione uma máquina';
+
+  if (etapa === 1 && !d.maquina) {
+    e.maquina = 'Selecione uma máquina';
+  }
+
   if (etapa === 2) {
-    if (!d.elementos.length) e.elementos = 'Adicione ao menos um procedimento';
-    else if (
-      d.elementos.some((x) => !(Number.isInteger(x.frequencia) && x.frequencia > 0))
-    )
-      e.elementos = 'A frequência deve ser um número inteiro maior que zero';
+    if (!d.elementos.length) {
+      e.elementos = 'Adicione ao menos um procedimento';
+    } else if (
+      d.elementos.some(
+        (x) => !Number.isInteger(x.frequencia) || x.frequencia <= 0
+      )
+    ) {
+      e.elementos = 'A frequência deve ser um inteiro maior que zero';
+    }
   }
+
   return e;
 }
 
 function Campo({ label, erro, children }) {
   return (
-    <label className="flex flex-col gap-1.5 text-xs text-[#4A4845]">
+    <label className="flex flex-col gap-2 text-sm text-[#686562]">
       <span className="font-medium">{label}</span>
       {children}
       {erro && <span className="text-xs text-red-700">{erro}</span>}
@@ -68,6 +103,7 @@ function Campo({ label, erro, children }) {
 
 export default function NovaPO() {
   const nav = useNavigate();
+
   const [etapa, setEtapa] = useState(0);
   const [demanda, setDemanda] = useState(inicial);
   const [maquinas, setMaquinas] = useState([]);
@@ -78,61 +114,96 @@ export default function NovaPO() {
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [importacao, setImportacao] = useState(null);
+  const [importando, setImportando] = useState(false);
 
   useEffect(() => {
-    maquinasApi.listar().then(setMaquinas);
-    elementosApi.listar().then(setCatalogo);
+    maquinasApi.listar()
+      .then(setMaquinas)
+      .catch((err) => setErro(erroMsg(err)));
+
+    elementosApi.listar()
+      .then(setCatalogo)
+      .catch((err) => setErro(erroMsg(err)));
   }, []);
 
-  const set = (k) => (e) => {
-    setDemanda({ ...demanda, [k]: e.target.value });
-    setErros({ ...erros, [k]: undefined });
-  };
-  // Índice do catálogo por código: busca instantânea mesmo com dezenas de milhares de elementos
-  const indice = useMemo(() => new Map(catalogo.map((e) => [e.codigo, e])), [catalogo]);
-  const elemento = (c) => indice.get(c);
+  const set = (campo) => (e) => {
+    const valor = e.target.value;
 
-  // Sugestões enquanto digita (código que começa com o texto ou descrição que contém), no máximo 8
+    setDemanda((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+
+    setErros((anterior) => ({
+      ...anterior,
+      [campo]: undefined,
+    }));
+  };
+
+  const indice = useMemo(
+    () => new Map(catalogo.map((e) => [e.codigo, e])),
+    [catalogo]
+  );
+
+  const elemento = (codigo) => indice.get(codigo);
+
   const sugestoes = useMemo(() => {
-    const t = codigoDigitado.trim().toLowerCase();
-    if (!t || /[,;\s]/.test(t)) return [];
-    const res = [];
-    for (const e of catalogo) {
-      if (e.codigo.toLowerCase().startsWith(t) || e.descricao.toLowerCase().includes(t)) res.push(e);
-      if (res.length === 8) break;
-    }
-    return res;
+    const termo = codigoDigitado.trim().toLowerCase();
+    if (!termo || /[,;\s]/.test(termo)) return [];
+
+    return catalogo.filter(
+      (e) =>
+        String(e.codigo).toLowerCase().startsWith(termo) ||
+        String(e.descricao).toLowerCase().includes(termo)
+    ).slice(0, 8);
   }, [catalogo, codigoDigitado]);
-  const maquinaSel = maquinas.find((m) => m.codigo === demanda.maquina);
+
+  const maquinaSel = maquinas.find(
+    (m) => m.codigo === demanda.maquina
+  );
 
   async function importar(e) {
-    const f = e.target.files[0];
-    if (!f) return;
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+
     setErro('');
     setImportacao(null);
+    setImportando(true);
+
     try {
-      const r = await posApi.importar(f);
-      if (r.length === 1 && r[0].ok) nav(`/pos/${r[0].id}`);
-      else setImportacao(r);
+      const resultado = await posApi.importar(arquivo);
+
+      if (resultado.length === 1 && resultado[0].ok) {
+        nav(`/pos/${resultado[0].id}`);
+      } else {
+        setImportacao(resultado);
+      }
     } catch (err) {
       setErro(erroMsg(err));
+    } finally {
+      setImportando(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   }
 
   async function avancar() {
     setErro('');
-    const e = validarEtapa(etapa, demanda);
-    setErros(e);
-    if (Object.keys(e).length) return;
+
+    const novosErros = validarEtapa(etapa, demanda);
+    setErros(novosErros);
+
+    if (Object.keys(novosErros).length) return;
+
     if (etapa === 2) {
       try {
         await posApi.preview(demanda);
       } catch (err) {
-        return setErro(erroMsg(err));
+        setErro(erroMsg(err));
+        return;
       }
     }
-    setEtapa(etapa + 1);
+
+    setEtapa((anterior) => anterior + 1);
   }
 
   function irPara(i) {
@@ -144,53 +215,106 @@ export default function NovaPO() {
   }
 
   async function gerar() {
+    if (enviando) return;
+
     setEnviando(true);
+    setErro('');
+
     try {
       const po = await posApi.criar(demanda);
       nav(`/pos/${po._id}`);
     } catch (err) {
       setErro(erroMsg(err));
+    } finally {
+      setEnviando(false);
     }
-    setEnviando(false);
   }
 
-  // Lê "2.1", "2.1, 1.1, 3.1" ou "4.1x2" e adiciona na ordem; avisa códigos inexistentes
   function adicionarCodigos(texto) {
-    const partes = String(texto).split(/[,;\s]+/).map((p) => p.trim()).filter(Boolean);
+    const partes = String(texto)
+      .split(/[,;\s]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
     if (!partes.length) return;
+
     const novos = [];
     const invalidos = [];
+
     for (const parte of partes) {
       const [cod, freq] = parte.split(/[xX*]/);
       const codigo = cod.trim();
       const frequencia = freq ? Number(freq.replace(',', '.')) : 1;
-      if (!indice.has(codigo) || !(Number.isInteger(frequencia) && frequencia > 0)) invalidos.push(parte);
-      else novos.push({ codigo, frequencia });
+
+      if (
+        !indice.has(codigo) ||
+        !Number.isInteger(frequencia) ||
+        frequencia <= 0
+      ) {
+        invalidos.push(parte);
+      } else {
+        novos.push({ codigo, frequencia });
+      }
     }
+
     if (novos.length) {
-      setDemanda((d) => ({ ...d, elementos: [...d.elementos, ...novos] }));
+      setDemanda((d) => ({
+        ...d,
+        elementos: [...d.elementos, ...novos],
+      }));
       setErros({});
     }
-    setErroCodigo(invalidos.length ? `Código(s) não encontrado(s) ou frequência inválida: ${invalidos.join(', ')}` : '');
+
+    setErroCodigo(
+      invalidos.length
+        ? `Código(s) não encontrado(s) ou frequência inválida: ${invalidos.join(', ')}`
+        : ''
+    );
+
     setCodigoDigitado(invalidos.join(', '));
   }
 
-  const elementos = (lista) => setDemanda({ ...demanda, elementos: lista });
-
-  const inputClass =
-    'h-10 bg-white border border-[#C8C6C1] rounded-xl px-3 text-sm text-[#222222] focus:outline-none focus:border-[#686562]';
+  function atualizarElementos(lista) {
+    setDemanda((anterior) => ({
+      ...anterior,
+      elementos: lista,
+    }));
+  }
 
   return (
-    <div>
-      <Stepper etapas={ETAPAS} atual={etapa} onChange={irPara} />
+    <div className="w-full min-h-[760px] bg-[#F2F1EE] rounded-[28px] p-6 lg:p-10">
 
-      <section className="bg-[#F2F1EE] border border-[#C8C6C1] rounded-3xl p-6 min-h-[380px] flex flex-col gap-4">
+      {/* CABEÇALHO */}
+      <PageHeader
+        titulo="Nova PO"
+        subtitulo="Preencha as informações para gerar uma nova ficha de Processo Operacional."
+      />
+
+      {/* ETAPAS */}
+      <div className="bg-white rounded-2xl p-4 lg:p-6 mb-7">
+        <Stepper
+          etapas={ETAPAS}
+          atual={etapa}
+          onChange={irPara}
+        />
+      </div>
+
+      <section className="bg-white rounded-3xl p-5 lg:p-8 min-h-[430px] flex flex-col gap-6">
+
+        {/* ETAPA 1 — PRODUTO */}
         {etapa === 0 && (
           <>
-            <h2 className="text-xl font-bold text-[#222222] m-0">
-              1. Dados do produto
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-[#222222]">
+                1. Dados do produto
+              </h2>
+              <p className="text-sm text-[#736F6B] mt-2">
+                Informe as características da peça e os dados necessários para o cálculo.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+
               <Campo label="Agrupamento família" erro={erros.familia}>
                 <input
                   className={inputClass}
@@ -199,6 +323,7 @@ export default function NovaPO() {
                   placeholder="Sobre-lençol"
                 />
               </Campo>
+
               <Campo label="Tamanho" erro={erros.tamanho}>
                 <input
                   className={inputClass}
@@ -208,11 +333,13 @@ export default function NovaPO() {
                   list="tamanhos"
                 />
               </Campo>
+
               <datalist id="tamanhos">
                 {TAMANHOS.map((t) => (
                   <option key={t} value={t} />
                 ))}
               </datalist>
+
               <Campo label="Medidas da peça (em m)" erro={erros.medidas}>
                 <input
                   className={inputClass}
@@ -221,6 +348,7 @@ export default function NovaPO() {
                   placeholder="1,80 x 2,50"
                 />
               </Campo>
+
               <Campo label="Pontos/cm" erro={erros.pontosCm}>
                 <input
                   className={inputClass}
@@ -230,6 +358,7 @@ export default function NovaPO() {
                   inputMode="decimal"
                 />
               </Campo>
+
               <Campo label="Perímetro costura (em m)" erro={erros.perimetroM}>
                 <input
                   className={inputClass}
@@ -239,6 +368,7 @@ export default function NovaPO() {
                   inputMode="decimal"
                 />
               </Campo>
+
               <Campo label="Operação" erro={erros.operacao}>
                 <input
                   className={inputClass}
@@ -247,53 +377,76 @@ export default function NovaPO() {
                   placeholder="Bainhar no corpo do SL - 1 lado"
                 />
               </Campo>
+
             </div>
 
-            <span className="text-xs text-[#686562]">
-              Todos os campos são obrigatórios. O código da PO (ex.: PO-SL-001) e a revisão 00 são gerados automaticamente.
-            </span>
+            <p className="text-sm text-[#736F6B]">
+              Todos os campos são obrigatórios. O código da PO e a revisão 00
+              são gerados automaticamente.
+            </p>
 
-            <label className="border-2 border-dashed border-[#A9A7A5] bg-white rounded-2xl p-4 flex flex-col gap-2 text-xs text-[#4A4845] cursor-pointer">
-              <span>Ou importe um arquivo JSON / Excel / CSV / TXT com a demanda</span>
+            {/* IMPORTAÇÃO */}
+            <div className="border-2 border-dashed border-[#C8C6C1] bg-[#FAF9F7] rounded-2xl p-5 lg:p-6">
+
+              <h3 className="text-base font-medium text-[#222222]">
+                Importar demanda
+              </h3>
+
+              <p className="text-sm text-[#736F6B] mt-2 mb-4">
+                Ou importe um arquivo JSON, Excel, CSV ou TXT com os dados da demanda.
+              </p>
+
               <input
                 type="file"
                 accept=".json,.xlsx,.xls,.csv,.txt"
                 onChange={importar}
-                className="text-xs"
+                disabled={importando}
+                className="block w-full text-sm text-[#686562] file:mr-4 file:rounded-xl file:border-0 file:bg-[#736F6B] file:px-5 file:py-3 file:text-sm file:font-medium file:text-white hover:file:bg-[#5E5A56] file:cursor-pointer"
               />
-            </label>
 
+              {importando && (
+                <p className="text-sm text-[#736F6B] mt-3">
+                  Importando arquivo...
+                </p>
+              )}
+            </div>
+
+            {/* RESULTADO DA IMPORTAÇÃO */}
             {importacao && (
-              <div className="bg-white rounded-2xl overflow-hidden border border-[#C8C6C1]">
-                <table className="w-full text-xs border-collapse">
+              <div className="overflow-x-auto rounded-2xl border border-[#E6E4DF]">
+                <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="bg-[#D9D9D9] text-[#222222]">
-                      <th className="py-2 px-3 text-left">Linha</th>
-                      <th className="py-2 px-3 text-left">Resultado</th>
+                    <tr className="bg-[#F2F1EE] text-[#686562]">
+                      <th className="py-4 px-5 text-left">Linha</th>
+                      <th className="py-4 px-5 text-left">Resultado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E2E0D8]">
-                    {importacao.map((x) => (
-                      <tr key={x.linha}>
-                        <td className="py-2 px-3">{x.linha}</td>
-                        <td className="py-2 px-3">
+
+                  <tbody className="divide-y divide-[#E6E4DF] text-[#222222]">
+                    {importacao.map((x, i) => (
+                      <tr key={`${x.linha}-${i}`}>
+                        <td className="py-4 px-5">{x.linha}</td>
+                        <td className="py-4 px-5">
                           {x.ok ? (
-                            <a
-                              href={`/pos/${x.id}`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                nav(`/pos/${x.id}`);
-                              }}
-                              className="underline font-semibold"
+                            <button
+                              type="button"
+                              onClick={() => nav(`/pos/${x.id}`)}
+                              className="underline font-medium text-[#686562] cursor-pointer"
                             >
                               {x.codigoPO} criada
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-red-700">
                               {typeof x.erro === 'string'
                                 ? x.erro
-                                : Object.entries(x.erro)
-                                    .map(([k, v]) => `${k}: ${v.join(', ')}`)
+                                : Object.entries(x.erro || {})
+                                    .map(([k, v]) =>
+                                      `${k}: ${
+                                        Array.isArray(v)
+                                          ? v.join(', ')
+                                          : String(v)
+                                      }`
+                                    )
                                     .join(' · ')}
                             </span>
                           )}
@@ -307,149 +460,243 @@ export default function NovaPO() {
           </>
         )}
 
+        {/* ETAPA 2 — MÁQUINA */}
         {etapa === 1 && (
           <>
-            <h2 className="text-xl font-bold text-[#222222] m-0">2. Máquina</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-[#222222]">
+                2. Selecionar máquina
+              </h2>
+              <p className="text-sm text-[#736F6B] mt-2">
+                Escolha a máquina que será utilizada na operação.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {maquinas.map((m) => {
                 const selecionada = demanda.maquina === m.codigo;
+
                 return (
                   <button
                     key={m.codigo}
                     type="button"
                     onClick={() => {
-                      setDemanda({ ...demanda, maquina: m.codigo });
+                      setDemanda((anterior) => ({
+                        ...anterior,
+                        maquina: m.codigo,
+                      }));
                       setErros({});
                     }}
-                    className={`text-left p-5 rounded-2xl transition-all cursor-pointer ${
+                    className={`text-left p-6 rounded-2xl transition-all cursor-pointer ${
                       selecionada
-                        ? 'bg-[#E5E3DD] border-2 border-[#686562] shadow-xs'
-                        : 'bg-white border border-[#C8C6C1] hover:border-[#736F6B]'
+                        ? 'bg-[#E5E3DD] border-2 border-[#736F6B] shadow-sm'
+                        : 'bg-[#FAF9F7] border border-[#C8C6C1] hover:border-[#736F6B]'
                     }`}
                   >
-                    <div className="text-xs text-[#686562]">Cód. {m.codigo}</div>
-                    <strong className="text-lg text-[#222222] block mt-0.5">
+                    <div className="flex justify-between items-center gap-3">
+                      <span className="text-sm text-[#736F6B]">
+                        Código {m.codigo}
+                      </span>
+
+                      <span
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          selecionada
+                            ? 'border-[#736F6B]'
+                            : 'border-[#C8C6C1]'
+                        }`}
+                      >
+                        {selecionada && (
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#736F6B]" />
+                        )}
+                      </span>
+                    </div>
+
+                    <strong className="text-xl text-[#222222] block mt-4">
                       {m.descricao}
                     </strong>
-                    <div className="text-xs text-[#4A4845] mt-1">
-                      RPM {m.rpmPadrao}
-                    </div>
+
+                    <p className="text-sm text-[#686562] mt-2">
+                      RPM padrão: {m.rpmPadrao}
+                    </p>
                   </button>
                 );
               })}
             </div>
+
+            {!maquinas.length && (
+              <p className="text-sm text-[#736F6B]">
+                Nenhuma máquina cadastrada.
+              </p>
+            )}
+
             {erros.maquina && (
-              <span className="text-xs text-red-700">{erros.maquina}</span>
+              <span className="text-sm text-red-700">
+                {erros.maquina}
+              </span>
             )}
           </>
         )}
 
+        {/* ETAPA 3 — PROCEDIMENTOS */}
         {etapa === 2 && (
           <>
-            <h2 className="text-xl font-bold text-[#222222] m-0">
-              3. Procedimentos (MTM)
-            </h2>
-            <p className="text-xs text-[#686562] m-0">
-              Adicione na ordem de execução. A costura de máquina (FIXO) entra automaticamente.
-            </p>
+            <div>
+              <h2 className="text-2xl font-semibold text-[#222222]">
+                3. Procedimentos (MTM)
+              </h2>
+
+              <p className="text-sm text-[#736F6B] mt-2">
+                Adicione os procedimentos na ordem de execução.
+                A costura de máquina (FIXO) entra automaticamente.
+              </p>
+            </div>
+
             <div className="relative">
-              <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex flex-col sm:flex-row gap-3">
+
                 <input
                   type="text"
                   value={codigoDigitado}
-                  onChange={(e) => { setCodigoDigitado(e.target.value); setErroCodigo(''); }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); adicionarCodigos(codigoDigitado); }
+                  onChange={(e) => {
+                    setCodigoDigitado(e.target.value);
+                    setErroCodigo('');
                   }}
-                  placeholder="Digite o código e tecle Enter (ex.: 2.1 ou vários: 2.1, 1.1, 4.1x2)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      adicionarCodigos(codigoDigitado);
+                    }
+                  }}
+                  placeholder="Digite o código ou a descrição do procedimento"
                   autoComplete="off"
-                  className="flex-1 min-w-[260px] h-10 bg-white border border-[#C8C6C1] rounded-xl px-3 text-sm text-[#222222] focus:outline-none focus:border-[#686562]"
+                  className={`${inputClass} flex-1 min-w-0`}
                 />
-                <button
-                  type="button"
+
+                <Button
+                  variante="primario"
+                  tamanho="grande"
+                  className="min-w-[150px]"
                   onClick={() => adicionarCodigos(codigoDigitado)}
-                  className="h-10 bg-[#686562] hover:bg-[#55524F] text-white rounded-xl px-4 text-xs font-medium cursor-pointer"
                 >
                   + Adicionar
-                </button>
+                </Button>
               </div>
 
+              {/* AUTOCOMPLETE */}
               {sugestoes.length > 0 && (
-                <ul className="absolute z-20 left-0 right-0 sm:right-28 mt-1 bg-white border border-[#C8C6C1] rounded-xl shadow-md overflow-hidden">
+                <ul className="absolute z-20 left-0 right-0 sm:right-[165px] mt-2 bg-white border border-[#C8C6C1] rounded-xl shadow-lg overflow-hidden">
                   {sugestoes.map((e) => (
                     <li key={e.codigo}>
                       <button
                         type="button"
                         onClick={() => adicionarCodigos(e.codigo)}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left text-xs hover:bg-[#F2F1EE] cursor-pointer"
+                        className="w-full flex items-center gap-4 px-4 py-3 text-left text-sm hover:bg-[#F2F1EE] cursor-pointer"
                       >
-                        <span className="font-semibold text-[#222222] w-12 shrink-0">{e.codigo}</span>
-                        <span className="flex-1 text-[#55524F] truncate">{e.descricao}</span>
-                        <span className="text-[#9E9B97] tabular-nums">{String(e.tempo).replace('.', ',')} min</span>
+                        <span className="font-semibold text-[#222222] w-16 shrink-0">
+                          {e.codigo}
+                        </span>
+
+                        <span className="flex-1 text-[#55524F] truncate">
+                          {e.descricao}
+                        </span>
+
+                        <span className="text-[#686562] text-xs tabular-nums">
+                          {String(e.tempo).replace('.', ',')} min
+                        </span>
                       </button>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
-            <p className="text-[11px] text-[#9E9B97] m-0">
-              {catalogo.length} procedimentos cadastrados. Busque pelo código ou por parte da descrição; use <b>x</b> para frequência (4.1x2 = duas vezes).
-            </p>
-            {erroCodigo && <span className="text-xs text-red-700">{erroCodigo}</span>}
 
-            <div className="bg-white rounded-2xl overflow-hidden border border-[#C8C6C1]">
-              <table className="w-full text-xs border-collapse">
+            <p className="text-sm text-[#736F6B]">
+              {catalogo.length} procedimentos cadastrados.
+              Busque pelo código ou pela descrição.
+              Para repetir um procedimento, utilize a frequência (ex.: 4.1x2).
+            </p>
+
+            {erroCodigo && (
+              <span className="text-sm text-red-700">
+                {erroCodigo}
+              </span>
+            )}
+
+            {/* TABELA DE PROCEDIMENTOS */}
+            <div className="overflow-x-auto rounded-2xl border border-[#E6E4DF]">
+              <table className="w-full min-w-[650px] text-sm border-collapse">
+
                 <thead>
-                  <tr className="bg-[#D9D9D9] text-[#222222]">
-                    <th className="py-2.5 px-3 text-left w-12">#</th>
-                    <th className="py-2.5 px-3 text-left w-24">Código</th>
-                    <th className="py-2.5 px-3 text-left">Descrição</th>
-                    <th className="py-2.5 px-3 text-left w-28">Freq.</th>
-                    <th className="py-2.5 px-3 text-right w-16" />
+                  <tr className="bg-[#F2F1EE] text-[#686562]">
+                    <th className="py-4 px-4 text-left w-12">#</th>
+                    <th className="py-4 px-4 text-left w-28">Código</th>
+                    <th className="py-4 px-4 text-left">Descrição</th>
+                    <th className="py-4 px-4 text-center w-28">Freq.</th>
+                    <th className="py-4 px-4 text-center w-20">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E2E0D8]">
+
+                <tbody className="divide-y divide-[#E6E4DF]">
                   {demanda.elementos.map((el, i) => (
-                    <tr key={i}>
-                      <td className="py-2.5 px-3">{i + 1}</td>
-                      <td className="py-2.5 px-3 font-medium">{el.codigo}</td>
-                      <td className="py-2.5 px-3">
+                    <tr
+                      key={i}
+                      className="hover:bg-[#FAF9F7] text-[#222222]"
+                    >
+                      <td className="py-4 px-4">{i + 1}</td>
+
+                      <td className="py-4 px-4 font-medium">
+                        {el.codigo}
+                      </td>
+
+                      <td className="py-4 px-4">
                         {elemento(el.codigo)?.descricao}
                       </td>
-                      <td className="py-2 px-3">
+
+                      <td className="py-3 px-4 text-center">
                         <input
                           type="number"
                           min="1"
                           step="1"
                           value={el.frequencia}
                           onChange={(e) =>
-                            elementos(
+                            atualizarElementos(
                               demanda.elementos.map((x, j) =>
                                 j === i
-                                  ? { ...x, frequencia: Number(e.target.value) }
+                                  ? {
+                                      ...x,
+                                      frequencia: Number(e.target.value),
+                                    }
                                   : x
                               )
                             )
                           }
-                          className="w-16 h-8 border border-[#C8C6C1] rounded-lg px-2 text-xs"
+                          className="w-20 h-10 border border-[#C8C6C1] rounded-xl px-3 text-sm text-center text-[#222222] focus:outline-none focus:border-[#736F6B]"
                         />
                       </td>
-                      <td className="py-2 px-3 text-right">
-                        <button
-                          type="button"
+
+                      <td className="py-3 px-4 text-center">
+                        <Button
+                          variante="excluir"
+                          tamanho="pequeno"
                           onClick={() =>
-                            elementos(demanda.elementos.filter((_, j) => j !== i))
+                            atualizarElementos(
+                              demanda.elementos.filter((_, j) => j !== i)
+                            )
                           }
-                          className="border border-[#C8C6C1] hover:bg-red-50 rounded-lg px-2.5 py-1 text-xs cursor-pointer"
+                          aria-label={`Remover procedimento ${el.codigo}`}
                         >
                           ✕
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
+
                   {!demanda.elementos.length && (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-[#736F6B]">
+                      <td
+                        colSpan={5}
+                        className="py-12 text-center text-[#736F6B]"
+                      >
                         Nenhum procedimento adicionado.
                       </td>
                     </tr>
@@ -457,135 +704,153 @@ export default function NovaPO() {
                 </tbody>
               </table>
             </div>
+
             {erros.elementos && (
-              <span className="text-xs text-red-700">{erros.elementos}</span>
+              <span className="text-sm text-red-700">
+                {erros.elementos}
+              </span>
             )}
           </>
         )}
 
+        {/* ETAPA 4 — REVISAR E GERAR */}
         {etapa === 3 && (
           <>
-            <h2 className="text-xl font-bold text-[#222222] m-0">
-              4. Revisar e gerar
-            </h2>
-            <p className="text-xs text-[#686562] m-0">
-              Confira os dados. Os tempos são calculados ao gerar a PO.
-            </p>
-            <div className="bg-white rounded-2xl overflow-hidden border border-[#C8C6C1]">
-              <table className="w-full text-xs border-collapse">
-                <tbody className="divide-y divide-[#E2E0D8]">
-                  <tr>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left w-44">
-                      Operação
-                    </th>
-                    <td colSpan={3} className="py-2.5 px-3">
-                      {demanda.operacao}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left">
-                      Agrupamento família
-                    </th>
-                    <td className="py-2.5 px-3">{demanda.familia}</td>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left w-40">
-                      Tamanho
-                    </th>
-                    <td className="py-2.5 px-3">{demanda.tamanho}</td>
-                  </tr>
-                  <tr>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left">
-                      Medidas da peça (em m)
-                    </th>
-                    <td className="py-2.5 px-3">{demanda.medidas}</td>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left">
-                      Pontos/cm
-                    </th>
-                    <td className="py-2.5 px-3">{demanda.pontosCm}</td>
-                  </tr>
-                  <tr>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left">
-                      Perímetro costura (em m)
-                    </th>
-                    <td colSpan={3} className="py-2.5 px-3">
-                      {demanda.perimetroM}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th className="bg-[#D9D9D9] py-2.5 px-3 text-left">
-                      Máquina
-                    </th>
-                    <td colSpan={3} className="py-2.5 px-3">
-                      {maquinaSel?.codigo} · {maquinaSel?.descricao}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div>
+              <h2 className="text-2xl font-semibold text-[#222222]">
+                4. Revisar e gerar
+              </h2>
+
+              <p className="text-sm text-[#736F6B] mt-2">
+                Confira as informações antes de gerar a PO.
+                Os tempos serão calculados automaticamente.
+              </p>
             </div>
 
-            <div className="bg-white rounded-2xl overflow-hidden border border-[#C8C6C1]">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#D9D9D9] text-[#222222]">
-                    <th className="py-2 px-3 text-left w-12">#</th>
-                    <th className="py-2 px-3 text-left w-24">Código</th>
-                    <th className="py-2 px-3 text-left">Procedimento</th>
-                    <th className="py-2 px-3 text-left w-24">Freq.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E0D8]">
-                  {demanda.elementos.map((el, i) => (
-                    <tr key={i}>
-                      <td className="py-2 px-3">{i + 1}</td>
-                      <td className="py-2 px-3">{el.codigo}</td>
-                      <td className="py-2 px-3">
-                        {elemento(el.codigo)?.descricao}
-                      </td>
-                      <td className="py-2 px-3">{el.frequencia}</td>
+            <div className="bg-[#FAF9F7] rounded-2xl p-5 lg:p-6">
+              <h3 className="text-lg font-semibold text-[#222222] mb-5">
+                Dados do produto
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                {[
+                  ['Operação', demanda.operacao],
+                  ['Agrupamento família', demanda.familia],
+                  ['Tamanho', demanda.tamanho],
+                  ['Medidas da peça', demanda.medidas],
+                  ['Pontos/cm', demanda.pontosCm],
+                  ['Perímetro de costura', demanda.perimetroM],
+                  [
+                    'Máquina',
+                    `${maquinaSel?.codigo ?? ''} · ${maquinaSel?.descricao ?? ''}`,
+                  ],
+                ].map(([titulo, valor]) => (
+                  <div key={titulo}>
+                    <p className="text-sm text-[#736F6B] mb-1">
+                      {titulo}
+                    </p>
+
+                    <p className="text-base font-medium text-[#222222]">
+                      {valor}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-[#222222] mb-4">
+                Procedimentos selecionados
+              </h3>
+
+              <div className="overflow-x-auto rounded-2xl border border-[#E6E4DF]">
+                <table className="w-full min-w-[500px] text-sm border-collapse">
+
+                  <thead>
+                    <tr className="bg-[#F2F1EE] text-[#686562]">
+                      <th className="py-4 px-4 text-left w-12">#</th>
+                      <th className="py-4 px-4 text-left w-28">Código</th>
+                      <th className="py-4 px-4 text-left">Procedimento</th>
+                      <th className="py-4 px-4 text-center w-28">Freq.</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody className="divide-y divide-[#E6E4DF]">
+                    {demanda.elementos.map((el, i) => (
+                      <tr key={i} className="text-[#222222]">
+                        <td className="py-4 px-4">{i + 1}</td>
+
+                        <td className="py-4 px-4 font-medium">
+                          {el.codigo}
+                        </td>
+
+                        <td className="py-4 px-4">
+                          {elemento(el.codigo)?.descricao}
+                        </td>
+
+                        <td className="py-4 px-4 text-center">
+                          {el.frequencia}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
 
-        {erro && <span className="text-xs text-red-700">{erro}</span>}
+        {/* ERRO GERAL */}
+        {erro && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-5 py-3">
+            {erro}
+          </div>
+        )}
       </section>
 
-      <div className="flex justify-between items-center mt-4">
+      {/* BOTÕES DE NAVEGAÇÃO */}
+      <div className="flex justify-between items-center gap-4 mt-7">
+
         <div>
           {etapa > 0 && (
-            <button
-              type="button"
+            <Button
+              variante="secundario"
+              tamanho="grande"
+              className="min-w-[150px]"
               onClick={() => irPara(etapa - 1)}
-              className="bg-white hover:bg-[#F2F1EE] border border-[#C8C6C1] text-[#222222] rounded-xl px-5 py-2.5 text-xs font-medium cursor-pointer"
             >
               ← Voltar
-            </button>
+            </Button>
           )}
         </div>
+
         <div>
           {etapa < 3 && (
-            <button
-              type="button"
+            <Button
+              variante="primario"
+              tamanho="grande"
+              className="min-w-[150px]"
               onClick={avancar}
-              className="bg-[#686562] hover:bg-[#55524F] text-white rounded-xl px-6 py-2.5 text-xs font-semibold cursor-pointer"
             >
               Próximo →
-            </button>
+            </Button>
           )}
+
           {etapa === 3 && (
-            <button
-              type="button"
+            <Button
+              variante="primario"
+              tamanho="grande"
+              className="min-w-[150px]"
               onClick={gerar}
               disabled={enviando}
-              className="bg-[#686562] hover:bg-[#55524F] text-white rounded-xl px-6 py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
             >
-              {enviando ? 'Gerando…' : 'Gerar PO'}
-            </button>
+              {enviando ? 'Gerando...' : 'Gerar PO'}
+            </Button>
           )}
         </div>
+
       </div>
     </div>
   );
 }
+

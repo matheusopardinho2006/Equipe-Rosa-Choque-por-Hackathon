@@ -1,7 +1,10 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { maquinasApi, erroMsg } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { min4 } from '../utils/format';
+
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
 
 const vazio = {
   codigo: '',
@@ -13,14 +16,20 @@ const vazio = {
 };
 
 export default function Maquinas() {
-  const { isAdm } = useAuth() || { isAdm: true };
+  const { isAdm } = useAuth() || {};
+
   const [lista, setLista] = useState([]);
   const [busca, setBusca] = useState('');
   const [modeloFiltro, setModeloFiltro] = useState('');
+
   const [modalAberto, setModalAberto] = useState(false);
   const [form, setForm] = useState(vazio);
   const [editando, setEditando] = useState(null);
+
   const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [importando, setImportando] = useState(false);
+
   const fileInputRef = useRef(null);
 
   const carregar = () =>
@@ -33,42 +42,72 @@ export default function Maquinas() {
     carregar();
   }, []);
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const set = (campo) => (e) => {
+    setForm((anterior) => ({
+      ...anterior,
+      [campo]: e.target.value,
+    }));
+  };
 
-  // Lista única de modelos para o filtro dropdown
-  const modelosDisponiveis = useMemo(() => {
-    const setModelos = new Set(lista.map((m) => m.descricao).filter(Boolean));
-    return Array.from(setModelos);
-  }, [lista]);
+  // Modelos disponíveis para filtragem
+  const modelosDisponiveis = useMemo(
+    () =>
+      [
+        ...new Set(
+          lista.map((m) => m.descricao).filter(Boolean)
+        ),
+      ].sort(),
+    [lista]
+  );
 
-  // Filtragem por busca e modelo selecionado
+  // Busca e filtro
   const maquinasFiltradas = useMemo(() => {
-    return lista.filter((m) => {
-      const termo = busca.trim().toLowerCase();
-      const bateBusca =
-        !termo ||
-        String(m.codigo).toLowerCase().includes(termo) ||
-        String(m.descricao || '').toLowerCase().includes(termo);
-      const bateModelo = !modeloFiltro || m.descricao === modeloFiltro;
-      return bateBusca && bateModelo;
-    });
+    const termo = busca.trim().toLowerCase();
+
+    return lista.filter(
+      (m) =>
+        (!termo ||
+          String(m.codigo ?? '')
+            .toLowerCase()
+            .includes(termo) ||
+          String(m.descricao ?? '')
+            .toLowerCase()
+            .includes(termo)) &&
+        (!modeloFiltro || m.descricao === modeloFiltro)
+    );
   }, [lista, busca, modeloFiltro]);
 
+  // Criar ou atualizar máquina
   async function salvar(e) {
     e.preventDefault();
+
+    if (salvando) return;
+
     const dados = Object.fromEntries(
-      Object.entries(form).filter(([, v]) => v !== '' && v != null)
+      Object.entries(form).filter(
+        ([, valor]) => valor !== '' && valor != null
+      )
     );
+
+    setSalvando(true);
+
     try {
-      if (editando) await maquinasApi.atualizar(editando, dados);
-      else await maquinasApi.criar(dados);
+      if (editando !== null) {
+        await maquinasApi.atualizar(editando, dados);
+      } else {
+        await maquinasApi.criar(dados);
+      }
+
+      await carregar();
+
       setForm(vazio);
       setEditando(null);
       setModalAberto(false);
       setErro('');
-      carregar();
     } catch (err) {
       setErro(erroMsg(err));
+    } finally {
+      setSalvando(false);
     }
   }
 
@@ -79,181 +118,315 @@ export default function Maquinas() {
     setModalAberto(true);
   }
 
-  function abrirEdicao(m) {
-    setForm({ ...vazio, ...m });
-    setEditando(m.codigo);
+  function abrirEdicao(maquina) {
+    setForm({
+      ...vazio,
+      ...maquina,
+    });
+
+    setEditando(maquina.codigo);
     setErro('');
     setModalAberto(true);
   }
 
-  async function excluir(m) {
-    if (!confirm(`Excluir máquina ${m.codigo} (${m.descricao})?`)) return;
+  function fecharModal() {
+    setModalAberto(false);
+    setEditando(null);
+    setErro('');
+  }
+
+  // Excluir máquina
+  async function excluir(maquina) {
+    const confirmado = window.confirm(
+      `Excluir máquina ${maquina.codigo} (${maquina.descricao})?`
+    );
+
+    if (!confirmado) return;
+
     try {
-      await maquinasApi.remover(m.codigo);
-      carregar();
+      await maquinasApi.remover(maquina.codigo);
+      await carregar();
+      setErro('');
     } catch (err) {
       setErro(erroMsg(err));
     }
   }
 
+  // Importar CSV
   async function importarPlanilha(e) {
     const arquivo = e.target.files?.[0];
+
     if (!arquivo) return;
+
+    setImportando(true);
+    setErro('');
+
     try {
       const texto = await arquivo.text();
+
       const linhas = texto
         .split(/\r?\n/)
-        .map((l) => l.trim())
+        .map((linha) => linha.trim())
         .filter(Boolean);
+
+      let falhas = 0;
+
       for (let i = 1; i < linhas.length; i++) {
-        const cols = linhas[i].split(/[;,]/).map((c) => c.replace(/^"|"$/g, '').trim());
-        if (cols.length >= 4) {
-          const [codigo, descricao, rpmPadrao, tempoPorMetro, rpmMin, rpmMax] = cols;
-          await maquinasApi
-            .criar({
+        const colunas = linhas[i]
+          .split(/[;,]/)
+          .map((coluna) =>
+            coluna.replace(/^"|"$/g, '').trim()
+          );
+
+        if (colunas.length >= 4) {
+          const [
+            codigo,
+            descricao,
+            rpmPadrao,
+            tempoPorMetro,
+            rpmMin,
+            rpmMax,
+          ] = colunas;
+
+          try {
+            await maquinasApi.criar({
               codigo,
               descricao,
               rpmPadrao,
               tempoPorMetro,
               ...(rpmMin ? { rpmMin } : {}),
               ...(rpmMax ? { rpmMax } : {}),
-            })
-            .catch(() => null);
+            });
+          } catch {
+            falhas++;
+          }
+        } else {
+          falhas++;
         }
       }
-      carregar();
+
+      await carregar();
+
+      if (falhas > 0) {
+        setErro(
+          `${falhas} linha(s) não foram importadas. Verifique o arquivo.`
+        );
+      }
     } catch (err) {
       setErro(erroMsg(err));
     } finally {
+      setImportando(false);
       e.target.value = '';
     }
   }
 
+  const campoStyle =
+    'w-full h-12 bg-[#F2F1EE] border border-[#C8C6C1] ' +
+    'rounded-xl px-4 text-sm text-[#222222] ' +
+    'focus:outline-none focus:border-[#736F6B] ' +
+    'disabled:opacity-60';
+
+  const labelStyle =
+    'block text-sm font-medium text-[#686562] mb-2';
+
   return (
-    <div className="pt-2 px-2">
-      {/* Cabeçalho: Título + Subtítulo à esquerda | Botões empilhados à direita */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-[26px] font-bold text-[#000000] leading-tight">
-            Cadastro de Máquinas
-          </h1>
-          <p className="text-sm text-[#222222] mt-1 max-w-md leading-snug">
-            Gerencie o cadastro das máquinas disponíveis
-            <br />
-            no sistema
-          </p>
-        </div>
+    <div className="w-full min-h-[760px] bg-[#F2F1EE] rounded-[28px] p-6 lg:p-10">
 
-        <div className="flex flex-col gap-3 shrink-0">
+      {/* CABEÇALHO PADRONIZADO */}
+      <PageHeader
+        titulo="Cadastro de Máquinas"
+        subtitulo="Gerencie o cadastro das máquinas disponíveis no sistema"
+      >
+        {isAdm && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={importarPlanilha}
+              className="hidden"
+            />
+
+            <Button
+              variante="secundario"
+              tamanho="grande"
+              disabled={importando}
+              onClick={() => fileInputRef.current?.click()}
+              className="min-w-[175px]"
+            >
+              {importando ? 'Importando...' : 'Importar CSV'}
+            </Button>
+
+            <Button
+              variante="primario"
+              tamanho="grande"
+              onClick={abrirNovaMaquina}
+              className="min-w-[175px]"
+            >
+              + Nova máquina
+            </Button>
+          </>
+        )}
+      </PageHeader>
+
+      {/* BUSCA E FILTROS */}
+      <div className="flex flex-col lg:flex-row gap-4 mb-7">
+
+        <div className="flex-1">
           <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={importarPlanilha}
-            className="hidden"
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por código ou modelo..."
+            aria-label="Buscar máquinas"
+            className="w-full h-12 bg-white border border-[#C8C6C1] rounded-xl px-5 text-sm text-[#222222] placeholder:text-[#9E9B97] focus:outline-none focus:border-[#736F6B]"
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-white hover:bg-[#F2F1EE] border border-[#555555] text-[#111111] rounded-xl px-5 py-2.5 text-sm font-normal w-44 text-center transition-colors cursor-pointer"
-          >
-            Importar Excel/CSV
-          </button>
-
-          <button
-            type="button"
-            onClick={abrirNovaMaquina}
-            className="bg-[#736F6B] hover:bg-[#5E5A56] border border-[#4A4744] text-white rounded-xl px-5 py-2.5 text-sm font-normal w-44 text-center transition-colors cursor-pointer"
-          >
-            Nova máquina
-          </button>
         </div>
-      </div>
-
-      {/* Linha de Filtros: Busca + Select de Modelos */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <input
-          type="text"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Busca por código,modelo ou descrição"
-          className="bg-[#F2F1EE] border border-[#686562] rounded-xl px-5 py-2 text-sm text-[#333333] placeholder-[#736F6B] flex-1 min-w-[260px] max-w-[460px] focus:outline-none focus:border-[#222222]"
-        />
 
         <select
           value={modeloFiltro}
           onChange={(e) => setModeloFiltro(e.target.value)}
-          className="bg-[#F2F1EE] border border-[#686562] rounded-xl px-4 py-2 text-sm text-[#222222] w-48 focus:outline-none focus:border-[#222222] cursor-pointer"
+          aria-label="Filtrar por modelo"
+          className="w-full lg:w-[190px] h-12 bg-white border border-[#C8C6C1] rounded-xl px-4 text-sm font-medium text-[#55524F] focus:outline-none focus:border-[#736F6B] cursor-pointer"
         >
           <option value="">Todos os modelos</option>
-          {modelosDisponiveis.map((mod) => (
-            <option key={mod} value={mod}>
-              {mod}
+
+          {modelosDisponiveis.map((modelo) => (
+            <option key={modelo} value={modelo}>
+              {modelo}
             </option>
           ))}
         </select>
+
       </div>
 
+      {/* ERROS */}
       {erro && !modalAberto && (
-        <div className="mb-4 text-xs text-red-700 bg-red-50 border border-red-200 px-4 py-2.5 rounded-xl">
+        <div className="mb-6 text-sm text-red-700 bg-red-50 border border-red-200 px-5 py-3 rounded-xl">
           {erro}
         </div>
       )}
 
-      {/* Tabela de Máquinas Fiel ao Mockup */}
-      <div className="bg-[#F2F1EE] rounded-2xl overflow-hidden min-h-[280px]">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+      {/* TABELA */}
+      <section className="bg-white rounded-3xl p-5 lg:p-7">
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+
+          <h2 className="text-xl font-semibold text-[#222222]">
+            Máquinas cadastradas
+          </h2>
+
+          <span className="text-sm text-[#736F6B]">
+            {maquinasFiltradas.length} de {lista.length} máquinas
+          </span>
+
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-[#E6E4DF]">
+
+          <table className="w-full min-w-[850px] border-collapse text-sm">
+
             <thead>
-              <tr className="bg-[#D9D9D9] text-[#1E1E1E] divide-x divide-[#ECECEC]">
-                <th className="py-4 px-4 text-center font-normal w-24">Código</th>
-                <th className="py-4 px-4 text-center font-normal">Modelo</th>
-                <th className="py-4 px-4 text-center font-normal">RPM Padrão</th>
-                <th className="py-4 px-4 text-center font-normal">RPM Mín.</th>
-                <th className="py-4 px-4 text-center font-normal">RPM Máx.</th>
-                <th className="py-4 px-4 text-center font-normal">Tempo por metro</th>
+              <tr className="bg-[#F2F1EE] text-[#686562]">
+
+                {[
+                  'Código',
+                  'Modelo',
+                  'RPM Padrão',
+                  'RPM Mín.',
+                  'RPM Máx.',
+                  'Tempo por metro',
+                ].map((titulo, i) => (
+                  <th
+                    key={titulo}
+                    className={`py-5 px-4 font-semibold ${
+                      i < 2 ? 'text-left' : 'text-center'
+                    }`}
+                  >
+                    {titulo}
+                  </th>
+                ))}
+
                 {isAdm && (
-                  <th className="py-4 px-4 text-center font-normal w-36">Ações</th>
+                  <th className="py-5 px-4 text-center font-semibold">
+                    Ações
+                  </th>
                 )}
+
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E0D8]">
-              {maquinasFiltradas.map((m) => {
-                const rpmMin = m.rpmMin ?? Math.round((m.rpmPadrao || 0) * 0.9);
-                const rpmMax = m.rpmMax ?? Math.round((m.rpmPadrao || 0) * 1.1);
+
+            <tbody className="divide-y divide-[#E6E4DF]">
+
+              {maquinasFiltradas.map((maquina) => {
+                const rpmMin =
+                  maquina.rpmMin ??
+                  Math.round(
+                    (maquina.rpmPadrao || 0) * 0.9
+                  );
+
+                const rpmMax =
+                  maquina.rpmMax ??
+                  Math.round(
+                    (maquina.rpmPadrao || 0) * 1.1
+                  );
+
                 return (
                   <tr
-                    key={m.codigo}
-                    className="hover:bg-[#EAE8E3] transition-colors text-[#111111]"
+                    key={maquina.codigo}
+                    className="hover:bg-[#FAF9F7] transition-colors text-[#222222]"
                   >
-                    <td className="py-5 px-4 text-center">{m.codigo}</td>
-                    <td className="py-5 px-4 text-center">{m.descricao}</td>
-                    <td className="py-5 px-4 text-center">{m.rpmPadrao}</td>
-                    <td className="py-5 px-4 text-center">{rpmMin}</td>
-                    <td className="py-5 px-4 text-center">{rpmMax}</td>
-                    <td className="py-5 px-4 text-center">
-                      {min4(m.tempoPorMetro)}m
+
+                    <td className="py-5 px-4 text-left font-medium">
+                      {maquina.codigo}
                     </td>
+
+                    <td className="py-5 px-4 text-left">
+                      {maquina.descricao}
+                    </td>
+
+                    <td className="py-5 px-4 text-center">
+                      {maquina.rpmPadrao}
+                    </td>
+
+                    <td className="py-5 px-4 text-center">
+                      {rpmMin}
+                    </td>
+
+                    <td className="py-5 px-4 text-center">
+                      {rpmMax}
+                    </td>
+
+                    <td className="py-5 px-4 text-center">
+                      {min4(maquina.tempoPorMetro)}m
+                    </td>
+
                     {isAdm && (
-                      <td className="py-5 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => abrirEdicao(m)}
-                            className="bg-[#686562] hover:bg-[#55524F] text-white text-xs px-3 py-1 rounded-full transition-colors cursor-pointer"
+                      <td className="py-5 px-4">
+
+                        <div className="flex items-center justify-center gap-2">
+
+                          <Button
+                            variante="editar"
+                            tamanho="pequeno"
+                            onClick={() => abrirEdicao(maquina)}
                           >
                             Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => excluir(m)}
-                            className="bg-[#686562] hover:bg-red-700 text-white text-xs px-3 py-1 rounded-full transition-colors cursor-pointer"
+                          </Button>
+
+                          <Button
+                            variante="excluir"
+                            tamanho="pequeno"
+                            onClick={() => excluir(maquina)}
                           >
                             Excluir
-                          </button>
+                          </Button>
+
                         </div>
+
                       </td>
                     )}
+
                   </tr>
                 );
               })}
@@ -262,124 +435,175 @@ export default function Maquinas() {
                 <tr>
                   <td
                     colSpan={isAdm ? 7 : 6}
-                    className="py-10 text-center text-[#736F6B]"
+                    className="py-16 text-center text-[#736F6B]"
                   >
                     Nenhuma máquina encontrada.
                   </td>
                 </tr>
               )}
+
             </tbody>
           </table>
-        </div>
-      </div>
 
-      {/* Modal de Cadastro / Edição de Máquina */}
+        </div>
+      </section>
+
+      {/* MODAL DE CADASTRO / EDIÇÃO */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-xl border border-[#C8C6C1]">
-            <h2 className="text-lg font-bold text-[#222222] mb-4">
-              {editando ? `Editar máquina ${editando}` : 'Nova máquina'}
-            </h2>
 
-            <form onSubmit={salvar} className="space-y-3.5">
+          <div className="bg-white rounded-[28px] p-6 md:p-9 w-full max-w-[600px] max-h-[90vh] overflow-y-auto shadow-xl">
+
+            <div className="mb-7">
+              <h2 className="text-2xl font-semibold text-[#222222]">
+                {editando !== null
+                  ? `Editar máquina ${editando}`
+                  : 'Nova máquina'}
+              </h2>
+
+              <p className="text-sm text-[#736F6B] mt-2">
+                Preencha as informações da máquina.
+              </p>
+            </div>
+
+            <form onSubmit={salvar} className="space-y-5">
+
               <div>
-                <label className="block text-xs text-[#686562] mb-1">Código</label>
+                <label className={labelStyle}>
+                  Código
+                </label>
+
                 <input
                   value={form.codigo}
                   onChange={set('codigo')}
-                  disabled={!!editando}
+                  disabled={editando !== null}
                   required
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm disabled:opacity-60 focus:outline-none focus:border-[#736F6B]"
+                  className={campoStyle}
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-[#686562] mb-1">
+                <label className={labelStyle}>
                   Modelo / Descrição
                 </label>
+
                 <input
                   value={form.descricao}
                   onChange={set('descricao')}
                   required
                   placeholder="Ex.: Reta, Interlock, Overloque"
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#736F6B]"
+                  className={campoStyle}
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-[#686562] mb-1">RPM Padrão</label>
+                <label className={labelStyle}>
+                  RPM Padrão
+                </label>
+
                 <input
+                  type="number"
+                  min="1"
                   value={form.rpmPadrao}
                   onChange={set('rpmPadrao')}
                   required
                   placeholder="Ex.: 4000"
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#736F6B]"
+                  className={campoStyle}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
+
                 <div>
-                  <label className="block text-xs text-[#686562] mb-1">RPM Mín.</label>
+                  <label className={labelStyle}>
+                    RPM Mín.
+                  </label>
+
                   <input
+                    type="number"
+                    min="0"
                     value={form.rpmMin ?? ''}
                     onChange={set('rpmMin')}
                     placeholder="Padrão - 10%"
-                    className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#736F6B]"
+                    className={campoStyle}
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs text-[#686562] mb-1">RPM Máx.</label>
+                  <label className={labelStyle}>
+                    RPM Máx.
+                  </label>
+
                   <input
+                    type="number"
+                    min="0"
                     value={form.rpmMax ?? ''}
                     onChange={set('rpmMax')}
                     placeholder="Padrão + 10%"
-                    className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#736F6B]"
+                    className={campoStyle}
                   />
                 </div>
+
               </div>
 
               <div>
-                <label className="block text-xs text-[#686562] mb-1">
+                <label className={labelStyle}>
                   Tempo por metro (min/m)
                 </label>
+
                 <input
+                  type="text"
+                  inputMode="decimal"
                   value={form.tempoPorMetro}
                   onChange={set('tempoPorMetro')}
                   required
                   placeholder="Ex.: 0,0850"
-                  className="w-full bg-[#F2F1EE] border border-[#C8C6C1] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#736F6B]"
+                  className={campoStyle}
                 />
               </div>
 
-              <p className="text-[11px] text-[#736F6B]">
-                RPM mín./máx. em branco = calculado automaticamente (padrão ± 10%).
+              <p className="text-xs text-[#736F6B]">
+                RPM mín./máx. em branco: cálculo automático
+                com variação de ±10% do RPM padrão.
               </p>
 
-              {erro && <div className="text-xs text-red-700">{erro}</div>}
+              {erro && (
+                <div className="text-sm text-red-700 bg-red-50 rounded-xl p-3">
+                  {erro}
+                </div>
+              )}
 
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalAberto(false);
-                    setEditando(null);
-                    setErro('');
-                  }}
-                  className="px-4 py-2 text-xs rounded-full bg-[#F2F1EE] text-[#55524F] hover:bg-[#E5E3DD] cursor-pointer"
+              {/* BOTÕES DO MODAL */}
+              <div className="flex justify-end gap-3 pt-4">
+
+                <Button
+                  variante="neutro"
+                  tamanho="medio"
+                  onClick={fecharModal}
+                  disabled={salvando}
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+
+                <Button
                   type="submit"
-                  className="px-5 py-2 text-xs rounded-full bg-[#736F6B] hover:bg-[#5E5A56] text-white cursor-pointer"
+                  variante="primario"
+                  tamanho="medio"
+                  disabled={salvando}
                 >
-                  Salvar
-                </button>
+                  {salvando
+                    ? 'Salvando...'
+                    : 'Salvar máquina'}
+                </Button>
+
               </div>
+
             </form>
+
           </div>
         </div>
       )}
+
     </div>
   );
 }

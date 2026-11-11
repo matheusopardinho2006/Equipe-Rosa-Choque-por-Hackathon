@@ -5,72 +5,133 @@ export default function Layout() {
   const { user, logout } = useAuth();
 
   const navLinkStyle = ({ isActive }) =>
-    `w-full text-center py-3 px-4 rounded-2xl text-xs font-medium transition-all block cursor-pointer leading-snug ${
+    `w-full flex items-center justify-center text-center
+    min-h-[56px] py-3 px-4 rounded-2xl
+    text-sm font-medium leading-snug
+    transition-colors duration-200
+    cursor-pointer
+    focus-visible:outline-none
+    focus-visible:ring-2
+    focus-visible:ring-[#736F6B]
+    focus-visible:ring-offset-2
+    ${
       isActive
-        ? 'bg-[#A9A7A5] text-white shadow-2xs'
-        : 'bg-white text-[#736F6B] hover:bg-[#E6E4DF]'
+        ? 'bg-[#736F6B] text-white shadow-sm'
+        : 'bg-white text-[#686562] hover:bg-[#E6E4DF]'
     }`;
 
   function handleLogout(e) {
     e.preventDefault();
-    if (logout) logout();
+
+    if (logout) {
+      logout();
+    }
   }
 
   return (
-    <div className="min-h-screen w-full bg-white text-[#222222] font-sans p-5">
-      <div className="max-w-[1380px] mx-auto flex flex-col md:flex-row gap-7 items-stretch">
-        {/* Barra Lateral (IDV Karsten) */}
-        <aside className="w-full md:w-56 shrink-0 bg-[#F2F1EE] rounded-[28px] p-5 flex flex-col justify-between min-h-[560px]">
+    <div className="min-h-screen w-full bg-white text-[#222222] font-sans p-4 md:p-5 lg:p-7">
+
+      {/* ESTRUTURA GERAL */}
+      <div className="w-full max-w-[1800px] mx-auto flex flex-col md:flex-row gap-5 lg:gap-7 items-stretch">
+
+        {/* BARRA LATERAL */}
+        <aside className="w-full md:w-[260px] lg:w-[280px] shrink-0 bg-[#F2F1EE] rounded-[28px] p-5 lg:p-6 flex flex-col justify-between md:min-h-[760px]">
+
           <div>
-            {/* Logo Karsten */}
-            <div className="bg-white rounded-2xl py-6 px-4 mb-6 text-center shadow-2xs">
-              <span className="text-[28px] font-bold tracking-tight text-[#7D7B78]">
-                Karsten
-              </span>
+
+            {/* LOGO OFICIAL KARSTEN */}
+            <div className="bg-white rounded-[20px] min-h-[110px] lg:min-h-[120px] px-4 py-5 mb-6 lg:mb-8 flex items-center justify-center">
+
+              <img
+                src="/logo-karsten2.png"
+                alt="Karsten"
+                className="w-full max-w-[210px] h-auto object-contain"
+              />
+
             </div>
 
-            {/* Navegação Principal */}
-            <nav className="space-y-4">
-              <NavLink to="/" end className={navLinkStyle}>
+            {/* NAVEGAÇÃO PRINCIPAL */}
+            <nav
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-3 lg:gap-4"
+              aria-label="Navegação principal"
+            >
+
+              <NavLink
+                to="/"
+                end
+                className={navLinkStyle}
+              >
                 Cadastro de POs
               </NavLink>
 
-              <NavLink to="/maquinas" className={navLinkStyle}>
+              <NavLink
+                to="/maquinas"
+                className={navLinkStyle}
+              >
                 Cadastro de Máquinas
               </NavLink>
 
-              <NavLink to="/elementos" className={navLinkStyle}>
+              <NavLink
+                to="/elementos"
+                className={navLinkStyle}
+              >
                 Cadastro de elementos MTM
               </NavLink>
 
-              <NavLink to="/analise" className={navLinkStyle}>
+              <NavLink
+                to="/analise"
+                className={navLinkStyle}
+              >
                 Análise de POs
               </NavLink>
+
             </nav>
           </div>
 
-          {/* Rodapé com Divisória e Sessão do Usuário */}
-          <div className="pt-6 mt-8 border-t border-[#9E9B97]">
-            <div className="bg-white rounded-2xl py-2.5 px-4 text-center text-xs text-[#736F6B] leading-tight">
-              <div className="truncate">
-                Logado como {user?.email || user?.usuario || 'XXXX'} /
+          {/* RODAPÉ E USUÁRIO */}
+          <div className="pt-6 mt-8 border-t border-[#C8C6C1]">
+
+            <div className="bg-white rounded-2xl py-4 px-3 text-center text-sm text-[#686562] leading-relaxed">
+
+              <div
+                className="truncate"
+                title={
+                  user?.email ||
+                  user?.usuario ||
+                  'Usuário'
+                }
+              >
+                Logado como{' '}
+                <span className="font-medium text-[#55524F]">
+                  {user?.email ||
+                    user?.usuario ||
+                    'Usuário'}
+                </span>
               </div>
+
               <button
                 type="button"
                 onClick={handleLogout}
-                className="underline font-normal hover:text-[#222222] cursor-pointer mt-0.5"
+                className="inline-flex items-center justify-center mt-3 text-sm font-medium text-[#736F6B] hover:text-[#222222] underline underline-offset-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#736F6B] rounded"
               >
                 Sair
               </button>
+
             </div>
           </div>
+
         </aside>
 
-        {/* Área Principal das Páginas */}
-        <main className="flex-1 min-w-0">
+        {/* CONTEÚDO PRINCIPAL */}
+        <main
+          id="conteudo-principal"
+          className="flex-1 min-w-0"
+        >
           <Outlet />
         </main>
+
       </div>
     </div>
   );
 }
+

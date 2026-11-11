@@ -1,45 +1,112 @@
+/* Fonte oficial do sistema */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* VARIÁVEIS DO SISTEMA */
 :root {
   --bg: #ffffff;
   --surface: #f2f1ee;
   --card: #ffffff;
+
   --text: #222222;
   --muted: #686562;
+  --muted-light: #9e9b97;
+
   --line: #c8c6c1;
+  --line-light: #e6e4df;
+
   --accent: #736f6b;
   --accent-dark: #5e5a56;
-  --pill-active: #a9a7a5;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --pill-active: #736f6b;
+
+  font-family: 'Inter', system-ui, sans-serif;
   color: var(--text);
+  background: var(--bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
+/* CONFIGURAÇÕES GERAIS */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+
   background: var(--bg);
   color: var(--text);
-  -webkit-font-smoothing: antialiased;
+
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
+/* ELEMENTO PRINCIPAL DO REACT */
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* TIPOGRAFIA DOS FORMULÁRIOS */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* LINKS */
 a {
   color: inherit;
   text-decoration: none;
 }
 
+/* ELEMENTOS INTERATIVOS */
 button,
-input,
 select {
-  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* FOCO ACESSÍVEL */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* MENSAGENS DE ERRO */
 .erro {
   color: #b00020;
   font-size: 12px;
 }
 
+/* TEXTOS SECUNDÁRIOS */
 .muted {
   color: var(--muted);
   font-size: 13px;
+}
+
+/* ROLAGEM */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
