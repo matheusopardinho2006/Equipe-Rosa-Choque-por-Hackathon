@@ -6,7 +6,8 @@ import Dashboard from './pages/Dashboard';
 import Maquinas from './pages/Maquinas';
 import NovaPO from './pages/NovaPO';
 import FichaPO from './pages/FichaPO';
-import Historico from './pages/Historico';
+import ElementosMTM from './pages/ElementosMTM';
+import AnalisePOs from './pages/AnalisePOs';
 
 function Privada({ children }) {
   const { user, loading } = useAuth();
@@ -23,7 +24,9 @@ export default function App() {
         <Route path="/maquinas" element={<Maquinas />} />
         <Route path="/nova-po" element={<NovaPO />} />
         <Route path="/pos/:id" element={<FichaPO />} />
-        <Route path="/historico" element={<Historico />} />
+        <Route path="/elementos" element={<ElementosMTM />} />
+        <Route path="/analise" element={<AnalisePOs />} />
+        <Route path="/historico" element={<Navigate to="/analise" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

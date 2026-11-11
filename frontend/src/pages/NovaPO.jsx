@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Stepper from '../components/Stepper';
 import { elementosApi, maquinasApi, posApi, erroMsg } from '../services/api';
@@ -72,7 +72,8 @@ export default function NovaPO() {
   const [demanda, setDemanda] = useState(inicial);
   const [maquinas, setMaquinas] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
-  const [add, setAdd] = useState('');
+  const [codigoDigitado, setCodigoDigitado] = useState('');
+  const [erroCodigo, setErroCodigo] = useState('');
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -80,17 +81,28 @@ export default function NovaPO() {
 
   useEffect(() => {
     maquinasApi.listar().then(setMaquinas);
-    elementosApi.listar().then((l) => {
-      setCatalogo(l);
-      setAdd(l[0]?.codigo || '');
-    });
+    elementosApi.listar().then(setCatalogo);
   }, []);
 
   const set = (k) => (e) => {
     setDemanda({ ...demanda, [k]: e.target.value });
     setErros({ ...erros, [k]: undefined });
   };
-  const elemento = (c) => catalogo.find((e) => e.codigo === c);
+  // Índice do catálogo por código: busca instantânea mesmo com dezenas de milhares de elementos
+  const indice = useMemo(() => new Map(catalogo.map((e) => [e.codigo, e])), [catalogo]);
+  const elemento = (c) => indice.get(c);
+
+  // Sugestões enquanto digita (código que começa com o texto ou descrição que contém), no máximo 8
+  const sugestoes = useMemo(() => {
+    const t = codigoDigitado.trim().toLowerCase();
+    if (!t || /[,;\s]/.test(t)) return [];
+    const res = [];
+    for (const e of catalogo) {
+      if (e.codigo.toLowerCase().startsWith(t) || e.descricao.toLowerCase().includes(t)) res.push(e);
+      if (res.length === 8) break;
+    }
+    return res;
+  }, [catalogo, codigoDigitado]);
   const maquinaSel = maquinas.find((m) => m.codigo === demanda.maquina);
 
   async function importar(e) {
@@ -140,6 +152,27 @@ export default function NovaPO() {
       setErro(erroMsg(err));
     }
     setEnviando(false);
+  }
+
+  // Lê "2.1", "2.1, 1.1, 3.1" ou "4.1x2" e adiciona na ordem; avisa códigos inexistentes
+  function adicionarCodigos(texto) {
+    const partes = String(texto).split(/[,;\s]+/).map((p) => p.trim()).filter(Boolean);
+    if (!partes.length) return;
+    const novos = [];
+    const invalidos = [];
+    for (const parte of partes) {
+      const [cod, freq] = parte.split(/[xX*]/);
+      const codigo = cod.trim();
+      const frequencia = freq ? Number(freq.replace(',', '.')) : 1;
+      if (!indice.has(codigo) || !(Number.isInteger(frequencia) && frequencia > 0)) invalidos.push(parte);
+      else novos.push({ codigo, frequencia });
+    }
+    if (novos.length) {
+      setDemanda((d) => ({ ...d, elementos: [...d.elementos, ...novos] }));
+      setErros({});
+    }
+    setErroCodigo(invalidos.length ? `Código(s) não encontrado(s) ou frequência inválida: ${invalidos.join(', ')}` : '');
+    setCodigoDigitado(invalidos.join(', '));
   }
 
   const elementos = (lista) => setDemanda({ ...demanda, elementos: lista });
@@ -319,29 +352,50 @@ export default function NovaPO() {
             <p className="text-xs text-[#686562] m-0">
               Adicione na ordem de execução. A costura de máquina (FIXO) entra automaticamente.
             </p>
-            <div className="flex flex-wrap gap-2 items-center">
-              <select
-                value={add}
-                onChange={(e) => setAdd(e.target.value)}
-                className="flex-1 min-w-[260px] h-10 bg-white border border-[#C8C6C1] rounded-xl px-3 text-sm text-[#222222]"
-              >
-                {catalogo.map((e) => (
-                  <option key={e.codigo} value={e.codigo}>
-                    {e.codigo} — {e.descricao}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => {
-                  elementos([...demanda.elementos, { codigo: add, frequencia: 1 }]);
-                  setErros({});
-                }}
-                className="h-10 bg-[#686562] hover:bg-[#55524F] text-white rounded-xl px-4 text-xs font-medium cursor-pointer"
-              >
-                + Adicionar
-              </button>
+            <div className="relative">
+              <div className="flex flex-wrap gap-2 items-center">
+                <input
+                  type="text"
+                  value={codigoDigitado}
+                  onChange={(e) => { setCodigoDigitado(e.target.value); setErroCodigo(''); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); adicionarCodigos(codigoDigitado); }
+                  }}
+                  placeholder="Digite o código e tecle Enter (ex.: 2.1 ou vários: 2.1, 1.1, 4.1x2)"
+                  autoComplete="off"
+                  className="flex-1 min-w-[260px] h-10 bg-white border border-[#C8C6C1] rounded-xl px-3 text-sm text-[#222222] focus:outline-none focus:border-[#686562]"
+                />
+                <button
+                  type="button"
+                  onClick={() => adicionarCodigos(codigoDigitado)}
+                  className="h-10 bg-[#686562] hover:bg-[#55524F] text-white rounded-xl px-4 text-xs font-medium cursor-pointer"
+                >
+                  + Adicionar
+                </button>
+              </div>
+
+              {sugestoes.length > 0 && (
+                <ul className="absolute z-20 left-0 right-0 sm:right-28 mt-1 bg-white border border-[#C8C6C1] rounded-xl shadow-md overflow-hidden">
+                  {sugestoes.map((e) => (
+                    <li key={e.codigo}>
+                      <button
+                        type="button"
+                        onClick={() => adicionarCodigos(e.codigo)}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left text-xs hover:bg-[#F2F1EE] cursor-pointer"
+                      >
+                        <span className="font-semibold text-[#222222] w-12 shrink-0">{e.codigo}</span>
+                        <span className="flex-1 text-[#55524F] truncate">{e.descricao}</span>
+                        <span className="text-[#9E9B97] tabular-nums">{String(e.tempo).replace('.', ',')} min</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
+            <p className="text-[11px] text-[#9E9B97] m-0">
+              {catalogo.length} procedimentos cadastrados. Busque pelo código ou por parte da descrição; use <b>x</b> para frequência (4.1x2 = duas vezes).
+            </p>
+            {erroCodigo && <span className="text-xs text-red-700">{erroCodigo}</span>}
 
             <div className="bg-white rounded-2xl overflow-hidden border border-[#C8C6C1]">
               <table className="w-full text-xs border-collapse">
