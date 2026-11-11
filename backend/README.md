@@ -40,6 +40,7 @@ src/
 |---|---|---|
 | GET | `/auth/me` | Valida a sessão e devolve o perfil autorizado |
 | GET/POST/PUT/DELETE | `/maquinas[/:codigo]` | Cadastro de máquinas |
+| POST | `/maquinas/importar` | Importa máquinas de Excel/CSV (colunas `codigo`, `descricao`, `rpmPadrao`, `tempoPorMetro`, `rpmMin`, `rpmMax`) |
 | GET/POST/PUT/DELETE | `/elementos[/:codigo]` | Cadastro de elementos MTM |
 | POST | `/elementos/importar` | Importa elementos de Excel/CSV (colunas `codigo`, `descricao`, `tempo`) |
 | POST | `/pos/preview` | Valida e calcula, sem salvar |
@@ -115,6 +116,19 @@ Cada registro é validado separadamente: os válidos viram PO e os inválidos vo
 ]
 ```
 
+### Importação de cadastros (máquinas e elementos MTM)
+
+`POST /maquinas/importar` e `POST /elementos/importar`, com o arquivo **Excel ou CSV** no campo `arquivo`. Primeira linha = cabeçalho, um cadastro por linha.
+
+- **Máquinas:** `codigo`, `descricao`, `rpmPadrao`, `tempoPorMetro`, `rpmMin`, `rpmMax` (os dois últimos podem ficar vazios = ±10%). Também aceita os títulos em português (`Código`, `Modelo`, `RPM Padrão`, `Tempo por metro (min/m)`...).
+- **Elementos:** `codigo`, `descricao`, `tempo`.
+- CSV no padrão brasileiro (`;` e vírgula decimal), do Google Planilhas (`,` com decimal entre aspas) ou americano (`,` e ponto decimal).
+- Código novo é criado; código existente é atualizado. Linhas inválidas voltam em `erros`, com o motivo:
+
+```json
+{ "lidos": 3, "inseridos": 1, "atualizados": 1, "erros": [{ "linha": 4, "erro": { "tempoPorMetro": ["Informe um número"] } }] }
+```
+
 ## Exportação Excel
 
 `GET /pos/:id/excel` gera `PO-SL-001_Rev00.xlsx` no layout do modelo oficial da ficha fornecido pela organização: cabeçalho, linha FIXO em amarelo, elementos e, no final, o **TP** como fórmula de soma.
@@ -123,9 +137,8 @@ Cada registro é validado separadamente: os válidos viram PO e os inválidos vo
 
 - O tempo por metro da máquina 1 (Interlock, **0,0964 min/m**) foi deduzido do gabarito: 0,6709 ÷ 6,96.
 - As máquinas 2 e 3 são **fictícias**, porque o kit não trouxe a aba TEMPO-CM.
-- Excluir máquina ou elemento só os desativa; eles continuam no banco por causa das POs antigas.
+- Excluir uma máquina ou um elemento MTM **apaga do banco**. As POs antigas não mudam, porque guardam uma cópia dos dados.
 
 ## Próximos passos
 
 - **Revisões da PO** (Rev. 01, 02...): o botão já existe no front, com o aviso "a implementar".
-- **Importar máquinas por planilha**: a função já existe no `crud.factory`; falta ligar a rota e o botão.

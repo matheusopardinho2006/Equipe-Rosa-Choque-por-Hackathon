@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
-const { lerDemandas } = require('../src/services/importacao.service');
-const { demandaSchema } = require('../src/validators/schemas');
+const { lerDemandas, lerPlanilha, prepararMaquina } = require('../src/services/importacao.service');
+const { demandaSchema, maquinaSchema } = require('../src/validators/schemas');
 
 const EX = path.join(__dirname, '..', 'exemplos');
 const arquivo = (nome) => ({ originalname: nome, buffer: fs.readFileSync(path.join(EX, nome)) });
@@ -75,5 +75,43 @@ describe('Vários registros e erros por linha', () => {
 
   test('extensão não suportada', () => {
     expect(() => lerDemandas({ originalname: 'x.pdf', buffer: Buffer.from('') })).toThrow('Formato não suportado');
+  });
+});
+
+describe('Importação de máquinas', () => {
+  const ler = (nome, conteudo) => lerPlanilha(Buffer.isBuffer(conteudo) ? conteudo : Buffer.from(conteudo), nome).map(prepararMaquina);
+  const validar = (m) => maquinaSchema.safeParse(m);
+  const galoneira = { codigo: 4, descricao: 'Galoneira', rpmPadrao: 4500, tempoPorMetro: 0.09 };
+
+  test('CSV brasileiro (";", vírgula decimal, BOM)', () => {
+    const [m, n] = ler('m.csv', '\uFEFFcodigo;descricao;rpmPadrao;tempoPorMetro;rpmMin;rpmMax\r\n4;Galoneira;4500;0,0900;;\r\n5;Reta, 1 agulha;5000;0,082;4600;5400\r\n');
+    expect(validar(m).data).toEqual(galoneira);
+    expect(validar(n).data).toEqual({ codigo: 5, descricao: 'Reta, 1 agulha', rpmPadrao: 5000, tempoPorMetro: 0.082, rpmMin: 4600, rpmMax: 5400 });
+  });
+
+  test('CSV do Google Planilhas ("," e decimal entre aspas)', () => {
+    const [m] = ler('m.csv', 'codigo,descricao,rpmPadrao,tempoPorMetro,rpmMin,rpmMax\n4,Galoneira,4500,"0,0900",,\n');
+    expect(validar(m).data).toEqual(galoneira);
+  });
+
+  test('CSV americano ("," e ponto decimal)', () => {
+    const [m] = ler('m.csv', 'codigo,descricao,rpmPadrao,tempoPorMetro\n4,Galoneira,4500,0.09\n');
+    expect(validar(m).data).toEqual(galoneira);
+  });
+
+  test('Excel com títulos em português', () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Código', 'Modelo', 'RPM Padrão', 'Tempo por metro (min/m)', 'RPM Mín.', 'RPM Máx.'],
+      [4, 'Galoneira', 4500, 0.09, '', ''],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Máquinas');
+    const [m] = ler('m.xlsx', XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    expect(validar(m).data).toEqual(galoneira);
+  });
+
+  test('linha inválida aponta o campo', () => {
+    const [m] = ler('m.csv', 'codigo;descricao;rpmPadrao;tempoPorMetro\n7;Sem tempo;4000;abc\n');
+    expect(validar(m).error.flatten().fieldErrors.tempoPorMetro).toEqual(['Informe um número']);
   });
 });

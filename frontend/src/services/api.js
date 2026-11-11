@@ -45,7 +45,7 @@ const crud = (path) => ({
   remover: (codigo) => api.delete(`${path}/${codigo}`),
 });
 
-export const maquinasApi = crud('/maquinas');
+export const maquinasApi = { ...crud('/maquinas'), importar: (arquivo) => enviarArquivo('/maquinas/importar', arquivo) };
 export const elementosApi = { ...crud('/elementos'), importar: (arquivo) => enviarArquivo('/elementos/importar', arquivo) };
 
 export const posApi = {

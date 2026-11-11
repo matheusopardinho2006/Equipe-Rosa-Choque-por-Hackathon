@@ -4,8 +4,10 @@ const { lerPlanilha } = require('../services/importacao.service');
 /**
  * CRUD genérico por "codigo" (usado por Máquinas e Elementos MTM).
  * parseCodigo: converte o :codigo da URL para o tipo do campo.
+ * exclusaoFisica: true = excluir apaga o documento do banco (POs antigas
+ *   não são afetadas, pois guardam uma cópia dos dados); false = só desativa.
  */
-function crudFactory(Model, { parseCodigo = (c) => c, preparar = (l) => l, schema, sort = { codigo: 1 } } = {}) {
+function crudFactory(Model, { parseCodigo = (c) => c, preparar = (l) => l, schema, exclusaoFisica = false, sort = { codigo: 1 } } = {}) {
   return {
     listar: async (_req, res) => {
       res.json(await Model.find({ ativo: true }).sort(sort).lean());
@@ -18,6 +20,11 @@ function crudFactory(Model, { parseCodigo = (c) => c, preparar = (l) => l, schem
     },
 
     criar: async (req, res) => {
+      // Com exclusão física, um registro desativado antigo com o mesmo código
+      // (de antes dessa regra) é removido para liberar o código.
+      if (exclusaoFisica && req.body.codigo != null) {
+        await Model.deleteOne({ codigo: parseCodigo(req.body.codigo), ativo: false });
+      }
       res.status(201).json(await Model.create(req.body));
     },
 
@@ -30,9 +37,13 @@ function crudFactory(Model, { parseCodigo = (c) => c, preparar = (l) => l, schem
       res.json(doc);
     },
 
-    // Exclusão lógica: POs antigas continuam com o snapshot.
+    // Exclusão física (apaga do banco) ou lógica (só desativa). Nos dois casos
+    // as POs já geradas continuam com a cópia dos dados.
     remover: async (req, res) => {
-      const doc = await Model.findOneAndUpdate({ codigo: parseCodigo(req.params.codigo) }, { ativo: false });
+      const filtro = { codigo: parseCodigo(req.params.codigo) };
+      const doc = exclusaoFisica
+        ? await Model.findOneAndDelete(filtro)
+        : await Model.findOneAndUpdate(filtro, { ativo: false });
       if (!doc) throw new AppError('Não encontrado', 404);
       res.status(204).end();
     },
