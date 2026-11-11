@@ -4,14 +4,22 @@ Solução para o **Hackathon Auto-T&M Karsten**: automatiza a formação de temp
 
 O usuário informa o produto, a máquina e a sequência de procedimentos MTM. O sistema busca os cadastros, calcula os tempos, gera o código da PO e exporta a ficha em Excel no formato do modelo oficial.
 
+## 🌐 Acesso Online (Demo)
+
+A aplicação está disponível online para testes:
+
+- **URL:** [https://karsten.therionej.com.br](https://karsten.therionej.com.br)
+- **Usuário (E-mail):** `admin@gmail.com`
+- **Senha:** `admin123`
+
+---
+
 | Pasta | Conteúdo |
 |---|---|
 | `backend/` | API em Node.js + Express + MongoDB. **Documentação em [`backend/README.md`](backend/README.md)** |
-| `frontend/` | Interface em React + Vite (**provisória**, veja abaixo) |
+| `frontend/` | Interface em React + Vite |
 
-> **Sobre o frontend:** a interface atual é **provisória**. Ela serve para demonstrar e testar o backend (login, cadastros, criação de PO, histórico e exportação), mas ainda será refeita. O backend é independente dela e pode ser usado por qualquer outra interface.
-
-## Como rodar
+## Como rodar localmente
 
 Pré-requisitos: Node 18 ou mais novo e um banco MongoDB (Atlas ou local).
 
@@ -64,6 +72,5 @@ Cenário oficial do evento (Sobre-lençol Solteiro, máquina 1, elementos 2.1, 1
 
 ## Próximos passos
 
-- Refazer o **frontend** definitivo.
 - **Revisões da PO** (Rev. 01, 02...): o botão já existe na ficha, com o aviso "a implementar".
 - **Importar máquinas por planilha**, como já é feito com os procedimentos MTM.

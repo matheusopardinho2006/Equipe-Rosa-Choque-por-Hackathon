@@ -9,6 +9,7 @@ const auth = require('../controllers/auth.controller');
 const Maquina = require('../models/Maquina');
 const Elemento = require('../models/Elemento');
 const { maquinaSchema, elementoSchema, demandaSchema } = require('../validators/schemas');
+const { prepararMaquina } = require('../services/importacao.service');
 
 const r = Router();
 const adm = [autenticar, exigirPerfil('ADM')];
@@ -27,14 +28,24 @@ function rotasCrud(path, ctrl, schema, { importar = false } = {}) {
   r.delete(`${path}/:codigo`, ...adm, h(ctrl.remover));
   if (importar) r.post(`${path}/importar`, ...adm, upload.single('arquivo'), h(ctrl.importar));
 }
-rotasCrud('/maquinas', crudFactory(Maquina, { parseCodigo: Number }), maquinaSchema);
+rotasCrud(
+  '/maquinas',
+  crudFactory(Maquina, { parseCodigo: Number, exclusaoFisica: true, preparar: prepararMaquina, schema: maquinaSchema }),
+  maquinaSchema,
+  { importar: true }
+);
 // Linha da planilha de elementos → { codigo, agrupador, elemento, descricao, tempo }
 const prepararElemento = (l) => {
   const codigo = String(l.codigo ?? '').replace(',', '.').trim();
   const [agrupador, elemento] = codigo.split('.').map(Number);
   return { codigo, agrupador, elemento, descricao: String(l.descricao ?? '').trim(), tempo: l.tempo };
 };
-rotasCrud('/elementos', crudFactory(Elemento, { preparar: prepararElemento, schema: elementoSchema }), elementoSchema, { importar: true });
+rotasCrud(
+  '/elementos',
+  crudFactory(Elemento, { exclusaoFisica: true, preparar: prepararElemento, schema: elementoSchema }),
+  elementoSchema,
+  { importar: true }
+);
 
 // POs (demandas)
 r.post('/pos/preview', autenticar, validate(demandaSchema), h(po.preview));

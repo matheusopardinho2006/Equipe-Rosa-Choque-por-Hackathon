@@ -84,4 +84,31 @@ function lerDemandas(file) {
   return linhas.map(mapearCampos).map((l) => ({ ...l, elementos: parseElementos(l.elementos) }));
 }
 
-module.exports = { lerPlanilha, lerDemandas, lerTexto, mapearCampos };
+// ---------- Cadastro de máquinas por planilha ----------
+// Cabeçalhos aceitos (sem diferença de acento, maiúscula, espaço ou parênteses)
+const CAMPOS_MAQUINA = {
+  codigo: ['codigo', 'cod', 'cod eqp', 'cod. eqp', 'cod. eqp.', 'codigo do equipamento', 'codigo da maquina'],
+  descricao: ['descricao', 'modelo', 'equipamento', 'descricao/modelo', 'maquina'],
+  rpmPadrao: ['rpmpadrao', 'rpm padrao', 'rpm - padrao', 'rpm'],
+  tempoPorMetro: ['tempopormetro', 'tempo por metro', 'tempo/metro', 'min/m', 'tempo por metro min/m', 'fator de tempo por metro'],
+  rpmMin: ['rpmmin', 'rpm min', 'rpm min.', 'rpm minimo', 'rpm - limite inferior', 'rpm limite inferior'],
+  rpmMax: ['rpmmax', 'rpm max', 'rpm max.', 'rpm maximo', 'rpm - limite superior', 'rpm limite superior'],
+};
+const chaveMaquina = (s) =>
+  String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+
+/** Linha da planilha → { codigo, descricao, rpmPadrao, tempoPorMetro, rpmMin?, rpmMax? } (valores ainda sem validar). */
+function prepararMaquina(linha) {
+  const out = {};
+  for (const [k, v] of Object.entries(linha)) {
+    const ck = chaveMaquina(k);
+    const campo = Object.keys(CAMPOS_MAQUINA).find((c) => c.toLowerCase() === ck || CAMPOS_MAQUINA[c].includes(ck));
+    if (!campo) continue;
+    const valor = typeof v === 'string' ? v.trim() : v;
+    if (valor === '' || valor == null) continue; // RPM mín./máx. vazios = cálculo automático (±10%)
+    out[campo] = campo === 'descricao' ? String(valor) : valor;
+  }
+  return out;
+}
+
+module.exports = { lerPlanilha, lerDemandas, lerTexto, mapearCampos, prepararMaquina };

@@ -152,7 +152,8 @@ export default function Maquinas() {
     }
   }
 
-  // Importar CSV
+  // Importar Excel/CSV: o backend lê o arquivo, valida cada linha e
+  // cria (ou atualiza, se o código já existir) as máquinas.
   async function importarPlanilha(e) {
     const arquivo = e.target.files?.[0];
 
@@ -162,55 +163,23 @@ export default function Maquinas() {
     setErro('');
 
     try {
-      const texto = await arquivo.text();
-
-      const linhas = texto
-        .split(/\r?\n/)
-        .map((linha) => linha.trim())
-        .filter(Boolean);
-
-      let falhas = 0;
-
-      for (let i = 1; i < linhas.length; i++) {
-        const colunas = linhas[i]
-          .split(/[;,]/)
-          .map((coluna) =>
-            coluna.replace(/^"|"$/g, '').trim()
-          );
-
-        if (colunas.length >= 4) {
-          const [
-            codigo,
-            descricao,
-            rpmPadrao,
-            tempoPorMetro,
-            rpmMin,
-            rpmMax,
-          ] = colunas;
-
-          try {
-            await maquinasApi.criar({
-              codigo,
-              descricao,
-              rpmPadrao,
-              tempoPorMetro,
-              ...(rpmMin ? { rpmMin } : {}),
-              ...(rpmMax ? { rpmMax } : {}),
-            });
-          } catch {
-            falhas++;
-          }
-        } else {
-          falhas++;
-        }
-      }
-
+      const r = await maquinasApi.importar(arquivo);
       await carregar();
 
-      if (falhas > 0) {
-        setErro(
-          `${falhas} linha(s) não foram importadas. Verifique o arquivo.`
-        );
+      const falhas = (r.erros || []).map(
+        (x) =>
+          `linha ${x.linha}: ${Object.entries(x.erro)
+            .map(([campo, msgs]) => `${campo} (${msgs.join(', ')})`)
+            .join('; ')}`
+      );
+
+      window.alert(
+        `${r.inseridos || 0} nova(s), ${r.atualizados || 0} atualizada(s), ${falhas.length} com erro.` +
+          (falhas.length ? `\n\n${falhas.join('\n')}` : '')
+      );
+
+      if (falhas.length) {
+        setErro(`${falhas.length} linha(s) não foram importadas. Verifique o arquivo.`);
       }
     } catch (err) {
       setErro(erroMsg(err));
@@ -242,7 +211,7 @@ export default function Maquinas() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,.xls,.csv"
               onChange={importarPlanilha}
               className="hidden"
             />
@@ -254,7 +223,7 @@ export default function Maquinas() {
               onClick={() => fileInputRef.current?.click()}
               className="min-w-[175px]"
             >
-              {importando ? 'Importando...' : 'Importar CSV'}
+              {importando ? 'Importando...' : 'Importar Excel/CSV'}
             </Button>
 
             <Button
