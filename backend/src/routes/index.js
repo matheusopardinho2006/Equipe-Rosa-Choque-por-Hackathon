@@ -52,6 +52,7 @@ r.post('/pos/preview', autenticar, validate(demandaSchema), h(po.preview));
 r.post('/pos/importar', autenticar, upload.single('arquivo'), h(po.importar));
 r.post('/pos', autenticar, validate(demandaSchema), h(po.criar));
 r.get('/pos', autenticar, h(po.listar));
+r.get('/pos/exportar/excel', autenticar, h(po.excelTodas));
 r.get('/pos/:id', autenticar, h(po.buscar));
 r.delete('/pos/:id', ...adm, h(po.remover));
 r.get('/pos/:id/excel', autenticar, h(po.excel));
