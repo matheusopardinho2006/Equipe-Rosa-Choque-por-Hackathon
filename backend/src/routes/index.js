@@ -13,6 +13,8 @@ const { maquinaSchema, elementoSchema, demandaSchema } = require('../validators/
 const r = Router();
 const adm = [autenticar, exigirPerfil('ADM')];
 
+
+
 // Autenticação Firebase e perfil autorizado no sistema
 r.get('/auth/me', autenticar, h(auth.me));
 
