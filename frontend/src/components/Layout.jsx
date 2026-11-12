@@ -85,6 +85,14 @@ export default function Layout() {
                 Análise de POs
               </NavLink>
 
+              {/* TUTORIAL DE USO */}
+              <NavLink
+                to="/tutorial"
+                className={navLinkStyle}
+              >
+                Tutorial de uso
+              </NavLink>
+
             </nav>
           </div>
 
@@ -134,4 +142,3 @@ export default function Layout() {
     </div>
   );
 }
-

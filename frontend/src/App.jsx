@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -9,10 +10,19 @@ import FichaPO from './pages/FichaPO';
 import ElementosMTM from './pages/ElementosMTM';
 import AnalisePOs from './pages/AnalisePOs';
 import ConfirmarImportacao from './pages/ConfirmarImportacao';
+import Tutorial from './pages/Tutorial';
 
 function Privada({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <p className="p-6 text-sm text-[#686562]">Verificando autenticação...</p>;
+
+  if (loading) {
+    return (
+      <p className="p-6 text-sm text-[#686562]">
+        Verificando autenticação...
+      </p>
+    );
+  }
+
   return user ? children : <Navigate to="/login" replace />;
 }
 
@@ -20,6 +30,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+
       <Route element={<Privada><Layout /></Privada>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/maquinas" element={<Maquinas />} />
@@ -31,7 +42,9 @@ export default function App() {
         <Route path="/elementos" element={<ElementosMTM />} />
         <Route path="/analise" element={<AnalisePOs />} />
         <Route path="/historico" element={<Navigate to="/analise" replace />} />
+        <Route path="/tutorial" element={<Tutorial />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
