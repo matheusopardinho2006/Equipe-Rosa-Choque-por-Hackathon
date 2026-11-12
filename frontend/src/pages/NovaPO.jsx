@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Stepper from '../components/Stepper';
 import PageHeader from '../components/PageHeader';
@@ -136,6 +136,22 @@ export default function NovaPO() {
   const [carregandoDados, setCarregandoDados] = useState(modoEdicao);
   const [codigoPOEditando, setCodigoPOEditando] = useState('');
   const [linhaImportada, setLinhaImportada] = useState(null);
+  const [mostrarOpcoes, setMostrarOpcoes] = useState(false);
+  const seletorMtmRef = useRef(null);
+
+  useEffect(() => {
+    function fecharAoClicarFora(e) {
+      if (
+        seletorMtmRef.current &&
+        !seletorMtmRef.current.contains(e.target)
+      ) {
+        setMostrarOpcoes(false);
+      }
+    }
+    document.addEventListener('mousedown', fecharAoClicarFora);
+    return () =>
+      document.removeEventListener('mousedown', fecharAoClicarFora);
+  }, []);
 
   useEffect(() => {
     maquinasApi.listar()
@@ -255,14 +271,19 @@ export default function NovaPO() {
 
   const sugestoes = useMemo(() => {
     const termo = codigoDigitado.trim().toLowerCase();
-    if (!termo || /[,;\s]/.test(termo)) return [];
+
+    if (!termo) {
+      return mostrarOpcoes ? catalogo : [];
+    }
+
+    if (/[,;]/.test(termo)) return [];
 
     return catalogo.filter(
       (e) =>
-        String(e.codigo).toLowerCase().startsWith(termo) ||
+        String(e.codigo).toLowerCase().includes(termo) ||
         String(e.descricao).toLowerCase().includes(termo)
-    ).slice(0, 8);
-  }, [catalogo, codigoDigitado]);
+    );
+  }, [catalogo, codigoDigitado, mostrarOpcoes]);
 
   const maquinaSel = maquinas.find(
     (m) => m.codigo === demanda.maquina
@@ -658,46 +679,72 @@ export default function NovaPO() {
                 </p>
               </div>
 
-              <div className="relative">
+              <div ref={seletorMtmRef} className="relative">
                 <div className="flex flex-col sm:flex-row gap-3">
 
-                  <input
-                    type="text"
-                    value={codigoDigitado}
-                    onChange={(e) => {
-                      setCodigoDigitado(e.target.value);
-                      setErroCodigo('');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        adicionarCodigos(codigoDigitado);
-                      }
-                    }}
-                    placeholder="Digite o código ou a descrição do procedimento"
-                    autoComplete="off"
-                    className={`${inputClass} flex-1 min-w-0`}
-                  />
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={codigoDigitado}
+                      onFocus={() => setMostrarOpcoes(true)}
+                      onClick={() => setMostrarOpcoes(true)}
+                      onChange={(e) => {
+                        setCodigoDigitado(e.target.value);
+                        setErroCodigo('');
+                        setMostrarOpcoes(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setMostrarOpcoes(false);
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          adicionarCodigos(codigoDigitado);
+                          setMostrarOpcoes(false);
+                        }
+                      }}
+                      placeholder="Selecione na seta ao lado ou digite o código/descrição do procedimento"
+                      autoComplete="off"
+                      className={`${inputClass} pr-11`}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setMostrarOpcoes((v) => !v)}
+                      title="Visualizar procedimentos MTM disponíveis"
+                      aria-label="Visualizar procedimentos MTM disponíveis"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center text-[#55524F] hover:bg-[#F2F1EE] transition-colors cursor-pointer"
+                    >
+                      <span className="text-xs leading-none">
+                        {mostrarOpcoes ? '▲' : '▼'}
+                      </span>
+                    </button>
+                  </div>
 
                   <Button
                     variante="primario"
                     tamanho="grande"
                     className="min-w-[150px]"
-                    onClick={() => adicionarCodigos(codigoDigitado)}
+                    onClick={() => {
+                      adicionarCodigos(codigoDigitado);
+                      setMostrarOpcoes(false);
+                    }}
                   >
                     + Adicionar
                   </Button>
                 </div>
 
-                {/* AUTOCOMPLETE */}
-                {sugestoes.length > 0 && (
-                  <ul className="absolute z-20 left-0 right-0 sm:right-[165px] mt-2 bg-white border border-[#C8C6C1] rounded-xl shadow-lg overflow-hidden">
+                {/* LISTA DE OPÇÕES / AUTOCOMPLETE */}
+                {mostrarOpcoes && sugestoes.length > 0 && (
+                  <ul className="absolute z-20 left-0 right-0 sm:right-[162px] mt-2 bg-white border border-[#C8C6C1] rounded-xl shadow-lg overflow-y-auto max-h-[280px] divide-y divide-[#F2F1EE]">
                     {sugestoes.map((e) => (
                       <li key={e.codigo}>
                         <button
                           type="button"
-                          onClick={() => adicionarCodigos(e.codigo)}
-                          className="w-full flex items-center gap-4 px-4 py-3 text-left text-sm hover:bg-[#F2F1EE] cursor-pointer"
+                          onClick={() => {
+                            adicionarCodigos(e.codigo);
+                            setMostrarOpcoes(false);
+                          }}
+                          className="w-full flex items-center gap-4 px-4 py-3 text-left text-sm hover:bg-[#F2F1EE] transition-colors cursor-pointer"
                         >
                           <span className="font-semibold text-[#222222] w-16 shrink-0">
                             {e.codigo}
@@ -707,7 +754,7 @@ export default function NovaPO() {
                             {e.descricao}
                           </span>
 
-                          <span className="text-[#686562] text-xs tabular-nums">
+                          <span className="text-[#686562] text-xs tabular-nums shrink-0">
                             {String(e.tempo).replace('.', ',')} min
                           </span>
                         </button>

@@ -7,7 +7,21 @@ const routes = require('./routes');
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
-app.use(cors({ origin: corsOrigin }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        corsOrigin === '*' ||
+        origin === corsOrigin ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, corsOrigin);
+    },
+  })
+);
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
