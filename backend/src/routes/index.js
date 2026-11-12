@@ -50,10 +50,12 @@ rotasCrud(
 // POs (demandas)
 r.post('/pos/preview', autenticar, validate(demandaSchema), h(po.preview));
 r.post('/pos/importar', autenticar, upload.single('arquivo'), h(po.importar));
+r.post('/pos/lote', autenticar, h(po.criarLote));
 r.post('/pos', autenticar, validate(demandaSchema), h(po.criar));
 r.get('/pos', autenticar, h(po.listar));
 r.get('/pos/exportar/excel', autenticar, h(po.excelTodas));
 r.get('/pos/:id', autenticar, h(po.buscar));
+r.put('/pos/:id', autenticar, validate(demandaSchema), h(po.atualizar));
 r.delete('/pos/:id', ...adm, h(po.remover));
 r.get('/pos/:id/excel', autenticar, h(po.excel));
 // TODO (próximo dev): revisões da PO (Rev. 01, 02...)

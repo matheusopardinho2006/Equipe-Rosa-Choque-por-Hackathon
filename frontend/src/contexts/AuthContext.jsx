@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { authApi } from '../services/api';
-import { firebaseAuth } from '../services/firebase';
+import { firebaseAuth, missingFirebaseConfig } from '../services/firebase';
 
 const AuthContext = createContext(null);
 
@@ -12,6 +12,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+
+    if (!firebaseAuth) {
+      setLoading(false);
+      return;
+    }
 
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       setLoading(true);
@@ -34,6 +39,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function login(email, password) {
+    if (!firebaseAuth) {
+      throw new Error(
+        `Firebase não configurado no frontend. Verifique o arquivo frontend/.env (campos pendentes: ${missingFirebaseConfig.join(', ')})`
+      );
+    }
     const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
     try {
       const profile = await authApi.me();
@@ -45,12 +55,14 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await signOut(firebaseAuth);
+    if (firebaseAuth) {
+      await signOut(firebaseAuth);
+    }
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdm: user?.perfil === 'ADM' }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAdm: user?.perfil === 'ADM', missingFirebaseConfig }}>
       {children}
     </AuthContext.Provider>
   );

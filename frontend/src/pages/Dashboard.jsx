@@ -294,15 +294,26 @@ export default function Dashboard() {
                     <div className="inline-flex items-center gap-2">
 
                       <Button
-                    variante="editar"
-                    tamanho="pequeno"
-                    onClick={(e) => {
-                    e.stopPropagation();
-                    nav(`/pos/${p._id}`);
-                }}
-              >
-            Abrir
-  </Button>
+                        variante="neutro"
+                        tamanho="pequeno"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/pos/${p._id}`);
+                        }}
+                      >
+                        Abrir
+                      </Button>
+
+                      <Button
+                        variante="editar"
+                        tamanho="pequeno"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/pos/${p._id}/editar`);
+                        }}
+                      >
+                        Editar
+                      </Button>
 
                       {isAdm && (
                         <Button

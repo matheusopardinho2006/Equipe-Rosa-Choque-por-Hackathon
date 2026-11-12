@@ -2,7 +2,8 @@ import axios from 'axios';
 import { signOut } from 'firebase/auth';
 import { firebaseAuth } from './firebase';
 
-const api = axios.create({ baseURL: `${import.meta.env.VITE_API_URL || ''}/api` });
+const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '').replace(/\/api$/, '');
+const api = axios.create({ baseURL: `${baseUrl}/api` });
 
 api.interceptors.request.use(async (cfg) => {
   const token = await firebaseAuth.currentUser?.getIdToken();
@@ -51,6 +52,8 @@ export const elementosApi = { ...crud('/elementos'), importar: (arquivo) => envi
 export const posApi = {
   preview: (demanda) => api.post('/pos/preview', demanda).then((r) => r.data),
   criar: (demanda) => api.post('/pos', demanda).then((r) => r.data),
+  criarLote: (demandas) => api.post('/pos/lote', { demandas }).then((r) => r.data),
+  atualizar: (id, demanda) => api.put(`/pos/${id}`, demanda).then((r) => r.data),
   listar: (params) => api.get('/pos', { params }).then((r) => r.data),
   buscar: (id) => api.get(`/pos/${id}`).then((r) => r.data),
   remover: (id) => api.delete(`/pos/${id}`),

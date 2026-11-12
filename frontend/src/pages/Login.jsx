@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { erroMsg } from '../services/api';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, missingFirebaseConfig } = useAuth() || {};
   const nav = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -44,6 +44,15 @@ export default function Login() {
           <h1 className="text-[22px] font-bold text-[#111111] text-center mb-8">
             Acesse o sistema
           </h1>
+
+          {missingFirebaseConfig?.length > 0 && (
+            <div className="mb-6 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-xl p-4 leading-relaxed">
+              <strong>Atenção:</strong> Crie o arquivo <code className="font-mono font-semibold">frontend/.env</code> com as chaves do Firebase:
+              <div className="mt-1 font-mono text-[11px] text-amber-900 break-all">
+                {missingFirebaseConfig.join(', ')}
+              </div>
+            </div>
+          )}
 
           <form
             onSubmit={entrar}

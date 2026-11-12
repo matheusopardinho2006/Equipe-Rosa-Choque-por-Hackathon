@@ -8,6 +8,7 @@ import NovaPO from './pages/NovaPO';
 import FichaPO from './pages/FichaPO';
 import ElementosMTM from './pages/ElementosMTM';
 import AnalisePOs from './pages/AnalisePOs';
+import ConfirmarImportacao from './pages/ConfirmarImportacao';
 
 function Privada({ children }) {
   const { user, loading } = useAuth();
@@ -23,7 +24,10 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/maquinas" element={<Maquinas />} />
         <Route path="/nova-po" element={<NovaPO />} />
+        <Route path="/confirmar-importacao" element={<ConfirmarImportacao />} />
+        <Route path="/confirmar-importacao/editar/:uid" element={<NovaPO />} />
         <Route path="/pos/:id" element={<FichaPO />} />
+        <Route path="/pos/:id/editar" element={<NovaPO />} />
         <Route path="/elementos" element={<ElementosMTM />} />
         <Route path="/analise" element={<AnalisePOs />} />
         <Route path="/historico" element={<Navigate to="/analise" replace />} />

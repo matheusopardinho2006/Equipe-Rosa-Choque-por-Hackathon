@@ -55,4 +55,13 @@ async function criarPO(entrada) {
   return PO.create({ ...dados, codigoPO, revisao: '00' });
 }
 
-module.exports = { montarPO, criarPO };
+async function atualizarPO(id, entrada) {
+  const existente = await PO.findById(id);
+  if (!existente) throw new AppError('PO não encontrada', 404);
+  const dados = await montarPO(entrada);
+  Object.assign(existente, dados);
+  await existente.save();
+  return existente.toObject();
+}
+
+module.exports = { montarPO, criarPO, atualizarPO };

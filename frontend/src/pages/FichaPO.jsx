@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { posApi, erroMsg } from '../services/api';
 import { min4 } from '../utils/format';
@@ -40,6 +40,7 @@ const num = (v) =>
 
 export default function FichaPO() {
   const { id } = useParams();
+  const nav = useNavigate();
 
   const [po, setPo] = useState(null);
   const [erro, setErro] = useState('');
@@ -195,6 +196,14 @@ export default function FichaPO() {
           <span className="inline-flex items-center justify-center h-9 px-4 rounded-full bg-white border border-[#C8C6C1] text-[#686562] text-sm font-medium">
             Rev. {po.revisao}
           </span>
+
+          <Button
+            variante="secundario"
+            tamanho="grande"
+            onClick={() => nav(`/pos/${po._id}/editar`)}
+          >
+            Editar PO
+          </Button>
 
           <Button
             variante="primario"

@@ -18,23 +18,66 @@ module.exports = {
   // Cria a PO: código e Rev. 00 gerados automaticamente
   criar: async (req, res) => res.status(201).json(await poService.criarPO(req.body)),
 
-  // Upload de JSON / Excel / CSV / TXT com uma ou várias demandas
+  // Cria múltiplas POs confirmadas a partir da tela de confirmação de importação
+  criarLote: async (req, res) => {
+    const demandas = Array.isArray(req.body?.demandas) ? req.body.demandas : [];
+    if (!demandas.length) throw new AppError('Selecione ao menos um procedimento para cadastrar');
+    const criadas = [];
+    for (const d of demandas) {
+      const v = demandaSchema.safeParse(d);
+      if (!v.success) {
+        throw new AppError('Dados inválidos em um dos procedimentos selecionados', 422, v.error.flatten().fieldErrors);
+      }
+      criadas.push(await poService.criarPO(v.data));
+    }
+    res.status(201).json(criadas);
+  },
+
+  // Atualiza uma PO existente recalculando os tempos
+  atualizar: async (req, res) => res.json(await poService.atualizarPO(req.params.id, req.body)),
+
+  // Upload de JSON / Excel / CSV / TXT com uma ou várias demandas (pré-visualização para confirmação)
   importar: async (req, res) => {
     if (!req.file) throw new AppError('Envie um arquivo no campo "arquivo"');
     const demandas = lerDemandas(req.file);
     if (!demandas.length) throw new AppError('Nenhuma demanda encontrada no arquivo');
     const resultado = [];
     for (const [i, d] of demandas.entries()) {
+      const demandaBruta = {
+        familia: d.familia != null ? String(d.familia).trim() : '',
+        tamanho: d.tamanho != null ? String(d.tamanho).trim() : '',
+        medidas: d.medidas != null ? String(d.medidas).trim() : '',
+        pontosCm: d.pontosCm ?? '',
+        perimetroM: d.perimetroM ?? '',
+        operacao: d.operacao != null ? String(d.operacao).trim() : '',
+        maquina: d.maquina != null && d.maquina !== '' && Number.isFinite(Number(d.maquina)) ? Number(d.maquina) : null,
+        elementos: Array.isArray(d.elementos) ? d.elementos : [],
+      };
       const v = demandaSchema.safeParse(d);
       if (!v.success) {
-        resultado.push({ linha: i + 1, ok: false, erro: v.error.flatten().fieldErrors });
+        resultado.push({
+          linha: i + 1,
+          ok: false,
+          erro: v.error.flatten().fieldErrors,
+          demanda: demandaBruta,
+        });
         continue;
       }
       try {
-        const po = await poService.criarPO(v.data);
-        resultado.push({ linha: i + 1, ok: true, id: po._id, codigoPO: po.codigoPO, revisao: po.revisao, tp: po.tp });
+        const previa = await poService.montarPO(v.data);
+        resultado.push({
+          linha: i + 1,
+          ok: true,
+          demanda: v.data,
+          ...previa,
+        });
       } catch (e) {
-        resultado.push({ linha: i + 1, ok: false, erro: e.message });
+        resultado.push({
+          linha: i + 1,
+          ok: false,
+          erro: e.message,
+          demanda: v.data,
+        });
       }
     }
     res.json(resultado);

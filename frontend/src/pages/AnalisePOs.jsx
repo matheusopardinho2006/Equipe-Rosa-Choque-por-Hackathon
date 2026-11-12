@@ -824,6 +824,10 @@ export default function AnalisePOs() {
                   Peças/h
                 </th>
 
+                <th className="py-5 px-4 text-center font-semibold">
+                  Ações
+                </th>
+
               </tr>
             </thead>
 
@@ -897,6 +901,18 @@ export default function AnalisePOs() {
                       {capacidade(p.tp)}
                     </td>
 
+                    <td className="py-5 px-4 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2">
+                        <Button
+                          variante="editar"
+                          tamanho="pequeno"
+                          onClick={() => nav(`/pos/${p._id}/editar`)}
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                    </td>
+
                   </tr>
                 );
               })}
@@ -904,7 +920,7 @@ export default function AnalisePOs() {
               {filtradas.length === 0 && (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="py-16 text-center text-[#736F6B]"
                   >
                     Nenhuma PO encontrada para os filtros selecionados.

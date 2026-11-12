@@ -1,5 +1,14 @@
+const dns = require('dns');
 const mongoose = require('mongoose');
 const { mongoUri } = require('./env');
+
+// Configura servidores DNS públicos (Google e Cloudflare) para evitar
+// o erro querySrv ECONNREFUSED no Node.js em redes locais/Windows com MongoDB Atlas
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch {
+  // Mantém os servidores do sistema se falhar
+}
 
 let connectionPromise = null;
 
